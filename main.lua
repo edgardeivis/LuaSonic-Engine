@@ -1,5 +1,5 @@
 love.graphics.setDefaultFilter('nearest', 'nearest')
-
+initial_width, initial_height = love.graphics.getDimensions( ) --idk if this is the best way to do this
 imgui = require "cimgui"
 ffi = require "ffi"
 require "grids"
@@ -31,6 +31,7 @@ function love.load()
     curvature_slider[0] = 1
 	line_xy.x2[0] = 64
 	line_xy.y2[0] = -64
+	imgui.GetIO().ConfigFlags = 64
 end
 
 function love.update(dt)
@@ -67,21 +68,45 @@ function create_line_editor_window()
 end
 
 function imgui_stuff()
+	--object browser
+	imgui.SetNextWindowSize({160, 400},imgui.ImGuiCond_FirstUseEver)
+	imgui.SetNextWindowPos({620, 180},imgui.ImGuiCond_FirstUseEver)
+	imgui.Begin("object list")
+	for i,v in pairs(placed) do
+		local is_selected
+		if selected_line == placed[i] then
+			is_selected = true
+		else
+			is_selected = false
+		end
+		if imgui.Selectable_Bool("line #".. placed[i].id,is_selected) then
+			if placed[i].curvature ~= nil then
+				iterations_slider[0] = placed[i].iterations
+				curvature_slider[0] = placed[i].curvature
+			end
+			line_xy.x1[0] = placed[i].x1
+			line_xy.y1[0] = placed[i].y1
+			line_xy.x2[0] = placed[i].x2
+			line_xy.y2[0] = placed[i].y2
+			selected_line = placed[i]
+		end
+	end
+	imgui.End() 
+	--------------------------
 	-- menu bar
 	imgui.BeginMainMenuBar()
 	if imgui.BeginMenu('File') then
-	
+
 		if imgui.MenuItem_Bool('New') then
+			--maybe will remove
 		end
 		if imgui.MenuItem_Bool('Open') then
-		end
-		if imgui.MenuItem_Bool('Open Recent') then
+			--will replace by just draggin file
 		end
 		if imgui.MenuItem_Bool('Save') then
+			--imgui text popup then saves into appdata directory and opens it
 		end
-		if imgui.MenuItem_Bool('Save As') then
-		end
-		if imgui.MenuItem_Bool('Exit') then
+		if imgui.MenuItem_Bool('Exit Editor') then
 		end
 	imgui.EndMenu()
 	end
@@ -138,7 +163,7 @@ function drawcurve(x1, y1, x2, y2, iterations, curvature)
 end
 
 function drawedge(x1, y1, x2, y2)
-	local edge = love.physics.newEdgeShape(x1, y1, x2, y2)
+	local edge = love.physics.newEdgeShape(x1, y1, x2 + x1, y2 + y1)
 	table.insert(to_render, edge)
 end
 
@@ -202,8 +227,10 @@ function love.draw()
 	end
 	
     love.graphics.push()
+	width, height = love.graphics.getDimensions( )
+	
     love.graphics.translate(-camera.x, -camera.y)
-	love.graphics.scale( camera.scale, camera.scale )
+	love.graphics.scale( camera.scale + width/initial_width - 1, camera.scale + width/initial_width - 1)
 	grids_draw()
 
     love.graphics.setColor(1, 1, 1)
