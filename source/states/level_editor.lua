@@ -26,7 +26,7 @@ size_height = ffi.new("int[0]")
 local function save_level()
 	lvl_name = ffi.string(level_info.name)
 	local file = love.filesystem.newFile('exported_levels/'.. lvl_name ..'.lslv')
-	local text_to_save = ''
+	local text_to_save = level_info.size_width[0] .. '/' .. level_info.size_height[0] .. '/' .. level_info.act[0] .. '\n'
 	for i,v in pairs(placed) do
 		if placed[i].curvature ~= nil then
 			text_to_save = text_to_save .. tostring(placed[i].id .. '/' .. placed[i].x1 .. '/' .. placed[i].y1 .. '/' .. placed[i].x2 .. '/' .. placed[i].y2 .. '/' .. placed[i].iterations .. '/' .. placed[i].curvature .. '\n')			
@@ -37,6 +37,34 @@ local function save_level()
 	love.filesystem.write('exported_levels/'..lvl_name..'.lslv',text_to_save)
 end
 
+local function load_level()
+		for i,v in pairs(love.filesystem.getDirectoryItems('levels')) do
+			if string.sub(v,0,-6) == ffi.string(level_info.name) then
+				local inside_file = love.filesystem.read('levels/'..v)
+				local file_line = inside_file:split("\n")
+				local text = file_line[1]
+				inside_file = text:split("/")
+				level_info.size_width[0] = tonumber(inside_file[1])
+				level_info.size_height[0] = tonumber(inside_file[2])
+				level_info.act[0] = tonumber(inside_file[3])
+				grids_load(level_info.size_width[0],level_info.size_height[0])
+				for i=2,#file_line-1 do 
+					local text = file_line[i]
+					inside_file = text:split("/")
+					local edge_table
+					for i=1,#inside_file do
+						inside_file[i] = tonumber(inside_file[i])
+					end
+					if inside_file[6] ~= nil then
+						edge_table = {id = inside_file[1],x1 = inside_file[2],y1 = inside_file[3],x2 = inside_file[4],y2 = inside_file[5],iterations = inside_file[6],curvature = inside_file[7]}
+					else
+						edge_table = {id = inside_file[1],x1 = inside_file[2],y1 = inside_file[3],x2 = inside_file[4],y2 = inside_file[5]}
+					end
+					table.insert(placed,edge_table)
+				end
+			end
+		end
+end
 
 function love.keypressed( key, scancode, isrepeat )
     imgui.love.KeyPressed(key)
@@ -155,28 +183,11 @@ function imgui_stuff()
 	if imgui.BeginMenu('File') then
 
 		if imgui.MenuItem_Bool('New') then
-			--maybe will remove
+			placed = {}
 		end
 		if imgui.MenuItem_Bool('Open') then
-			--will replace by just draggin file
-			for i,v in pairs(love.filesystem.getDirectoryItems('levels')) do
-				if string.sub(v,0,-6) == ffi.string(level_info.name) then
-					local inside_file = love.filesystem.read('levels/'..v)
-					local file_line = inside_file:split("\n")
-					for i=1,#file_line-1 do 
-						local text = file_line[i]
-						inside_file = text:split("/")
-						local edge_table
-						if inside_file[6] ~= nil then
-							edge_table = {id = inside_file[1],x1 = inside_file[2],y1 = inside_file[3],x2 = inside_file[4],y2 = inside_file[5],iterations = inside_file[6],curvature = inside_file[7]}
-						else
-							edge_table = {id = inside_file[1],x1 = inside_file[2],y1 = inside_file[3],x2 = inside_file[4],y2 = inside_file[5]}
-						end
-						table.insert(placed,edge_table)
-					end
-
-				end
-			end
+			placed = {}
+			load_level()
 		end
 		if imgui.MenuItem_Bool('Save') then
 			if ffi.string(level_info.name) ~= '' then
