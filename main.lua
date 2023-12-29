@@ -2,7 +2,6 @@ love.graphics.setDefaultFilter('nearest', 'nearest')
 initial_width, initial_height = love.graphics.getDimensions( ) --idk if this is the best way to do this
 imgui = require "cimgui"
 ffi = require "ffi"
-require "source.grids"
 require "source.imguistuff"
 statelibrary = require 'source.gamestate'
 
@@ -16,6 +15,7 @@ end
 loadgame()
 
 function love.draw()
+
 	gamestate_draw()
 end
 

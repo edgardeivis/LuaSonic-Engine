@@ -1,3 +1,8 @@
+require "source.grids"
+local appdata_location = love.filesystem.getAppdataDirectory()
+
+local folder = love.filesystem.createDirectory("exported_levels")
+
 local camera = {
 x = 0,
 y = 0,
@@ -10,6 +15,28 @@ local line_xy = {x1=90,y1=360,x2=360,y2=-180}
 local placed = {}
 local to_render = {}
 local selected_line
+
+local level_info = {
+name = ffi.new("char[32]"),
+act = ffi.new("int[0]"),
+size_width = ffi.new("int[0]"),
+size_height = ffi.new("int[0]")
+}
+
+local function save_level()
+	lvl_name = ffi.string(level_info.name)
+	local file = love.filesystem.newFile('exported_levels/'.. lvl_name ..'.lslv')
+	local text_to_save = ''
+	for i,v in pairs(placed) do
+		if placed[i].curvature ~= nil then
+			text_to_save = text_to_save .. tostring(placed[i].id .. '/' .. placed[i].x1 .. '/' .. placed[i].y1 .. '/' .. placed[i].x2 .. '/' .. placed[i].y2 .. '/' .. placed[i].iterations .. '/' .. placed[i].curvature .. '\n')			
+		else
+			text_to_save = text_to_save .. tostring(placed[i].id .. '/' .. placed[i].x1 .. '/' .. placed[i].y1 .. '/' .. placed[i].x2 .. '/' .. placed[i].y2 .. '\n')
+		end
+	end
+	love.filesystem.write('exported_levels/'..lvl_name..'.lslv',text_to_save)
+end
+
 
 function love.keypressed( key, scancode, isrepeat )
     imgui.love.KeyPressed(key)
@@ -37,6 +64,10 @@ function love.load()
     curvature_slider[0] = 1
 	line_xy.x2[0] = 64
 	line_xy.y2[0] = -64
+	level_info.name[0] = 0
+	level_info.act[0] = 1
+	level_info.size_width[0] = 1280
+	level_info.size_height[0] = 1280
 	imgui.GetIO().ConfigFlags = 64
 end
 
@@ -75,26 +106,49 @@ function imgui_stuff()
 	imgui.SetNextWindowSize({160, 400},imgui.ImGuiCond_FirstUseEver)
 	imgui.SetNextWindowPos({620, 180},imgui.ImGuiCond_FirstUseEver)
 	imgui.Begin("object list")
-	for i,v in pairs(placed) do
-		local is_selected
-		if selected_line == placed[i] then
-			is_selected = true
-		else
-			is_selected = false
-		end
-		if imgui.Selectable_Bool("line #".. placed[i].id,is_selected) then
-			if placed[i].curvature ~= nil then
-				iterations_slider[0] = placed[i].iterations
-				curvature_slider[0] = placed[i].curvature
+		for i,v in pairs(placed) do
+			local is_selected
+			if selected_line == placed[i] then
+				is_selected = true
+			else
+				is_selected = false
 			end
-			line_xy.x1[0] = placed[i].x1
-			line_xy.y1[0] = placed[i].y1
-			line_xy.x2[0] = placed[i].x2
-			line_xy.y2[0] = placed[i].y2
-			selected_line = placed[i]
+			if imgui.Selectable_Bool("line #".. placed[i].id,is_selected) then
+				if placed[i].curvature ~= nil then
+					iterations_slider[0] = placed[i].iterations
+					curvature_slider[0] = placed[i].curvature
+				end
+				line_xy.x1[0] = placed[i].x1
+				line_xy.y1[0] = placed[i].y1
+				line_xy.x2[0] = placed[i].x2
+				line_xy.y2[0] = placed[i].y2
+				selected_line = placed[i]
+			end
 		end
-	end
 	imgui.End() 
+	--------------------------
+	-- level settings
+	imgui.Begin('Settings')
+		imgui.SetNextWindowSize({350, 130}, imgui.ImGuiCond_FirstUseEver)
+		imgui.SetNextWindowPos({32, 32}, imgui.ImGuiCond_FirstUseEver)
+		imgui.PushItemWidth(236)
+		imgui.InputText("##Name", level_info.name,32); imgui.SameLine()
+		imgui.Text("Level Name")
+		imgui.PushItemWidth(114)
+		if imgui.InputInt("##lvl_width", level_info.size_width,32,128) then
+			grids_load(level_info.size_width[0],level_info.size_height[0])
+		end
+			imgui.SameLine()
+		if imgui.InputInt("##lvl_height", level_info.size_height,32,128) then
+			grids_load(level_info.size_width[0],level_info.size_height[0])
+		end
+		imgui.SameLine()
+
+		imgui.Text("Level Borders")
+		if level_info.size_width[0] < 0 or level_info.size_height[0] < 0 then
+			imgui.TextColored({1, 0, 0, 1}, "I wouldn't recommend using negative numbers")
+		end
+	imgui.End()
 	--------------------------
 	-- menu bar
 	imgui.BeginMainMenuBar()
@@ -107,7 +161,10 @@ function imgui_stuff()
 			--will replace by just draggin file
 		end
 		if imgui.MenuItem_Bool('Save') then
-			--imgui text popup then saves into appdata directory and opens it
+			if ffi.string(level_info.name) ~= '' then
+				save_level()			
+			end
+
 		end
 		if imgui.MenuItem_Bool('Exit Editor') then
 		end
@@ -264,7 +321,6 @@ function state_draw()
 	imgui_stuff()
 
 	love.graphics.print( math.floor(x_editor + 0.5) .. ',' .. math.floor(y_editor +0.5) .. ' | ' .. camera.scale,7,580)
-	
 end
 
 return state_draw
