@@ -159,6 +159,24 @@ function imgui_stuff()
 		end
 		if imgui.MenuItem_Bool('Open') then
 			--will replace by just draggin file
+			for i,v in pairs(love.filesystem.getDirectoryItems('levels')) do
+				if string.sub(v,0,-6) == ffi.string(level_info.name) then
+					local inside_file = love.filesystem.read('levels/'..v)
+					local file_line = inside_file:split("\n")
+					for i=1,#file_line-1 do 
+						local text = file_line[i]
+						inside_file = text:split("/")
+						local edge_table
+						if inside_file[6] ~= nil then
+							edge_table = {id = inside_file[1],x1 = inside_file[2],y1 = inside_file[3],x2 = inside_file[4],y2 = inside_file[5],iterations = inside_file[6],curvature = inside_file[7]}
+						else
+							edge_table = {id = inside_file[1],x1 = inside_file[2],y1 = inside_file[3],x2 = inside_file[4],y2 = inside_file[5]}
+						end
+						table.insert(placed,edge_table)
+					end
+
+				end
+			end
 		end
 		if imgui.MenuItem_Bool('Save') then
 			if ffi.string(level_info.name) ~= '' then
