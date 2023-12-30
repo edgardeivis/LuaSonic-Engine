@@ -1,4 +1,6 @@
 require "source.grids"
+imgui = require "cimgui"
+require "source.imguistuff"
 local appdata_location = love.filesystem.getAppdataDirectory()
 
 local folder = love.filesystem.createDirectory("exported_levels")
@@ -238,7 +240,7 @@ end
 
 
 
-function drawcurve(x1, y1, x2, y2, iterations, curvature)
+local function drawcurve(x1, y1, x2, y2, iterations, curvature)
     local tablex = {}
     local tabley = {}
     local curves = {}
@@ -255,7 +257,7 @@ function drawcurve(x1, y1, x2, y2, iterations, curvature)
     end
 end
 
-function drawedge(x1, y1, x2, y2)
+local function drawedge(x1, y1, x2, y2)
 	local edge = love.physics.newEdgeShape(x1, y1, x2 + x1, y2 + y1)
 	table.insert(to_render, edge)
 end
