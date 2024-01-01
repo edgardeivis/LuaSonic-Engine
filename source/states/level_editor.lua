@@ -6,9 +6,9 @@ local appdata_location = love.filesystem.getAppdataDirectory()
 local folder = love.filesystem.createDirectory("exported_levels")
 
 local camera = {
-x = 0,
-y = 0,
-scale = 1
+	x = 0,
+	y = 0,
+	scale = 1
 }
 
 local iterations_slider
@@ -19,10 +19,10 @@ local to_render = {}
 local selected_line
 
 local level_info = {
-name = ffi.new("char[32]"),
-act = ffi.new("int[0]"),
-size_width = ffi.new("int[0]"),
-size_height = ffi.new("int[0]")
+	name = ffi.new("char[32]"),
+	act = ffi.new("int[0]"),
+	size_width = ffi.new("int[0]"),
+	size_height = ffi.new("int[0]")
 }
 
 local function save_level()

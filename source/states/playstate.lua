@@ -1,18 +1,37 @@
+local ray_hitLists = {}
+
+function worldRayCastCallback(fixture, x, y, xn, yn, fraction)
+	local hit = {}
+	hit.fixture = fixture
+	hit.x, hit.y = x, y
+	hit.xn, hit.yn = xn, yn
+	hit.fraction = fraction
+
+	table.insert(ray_hitLists, hit)
+
+	return 1 -- Continues with ray cast through all shapes.
+end
+
+
 local camera = {
-x = 0,
-y = 0,
-scale = 0.8
+	x = 0,
+	y = 0,
+	scale = 0.8
 }
 
 local placed = {}
 local to_render = {}
 
 local level_info = {
-name = 'test',
-act = 1,
-size_width = 1280,
-size_height = 1280
+	name = 'test',
+	act = 1,
+	size_width = 1280,
+	size_height = 1280
 }
+
+function love.update(dt)
+	World:update(dt)
+end
 
 local function drawcurve(x1, y1, x2, y2, iterations, curvature)
     local tablex = {}
@@ -69,7 +88,45 @@ local function load_level(level_name)
 end
 
 function love.load()
+	love.physics.setMeter(1)
+	
+	World = love.physics.newWorld()
+	
 	load_level('hello_world')
+end
+
+
+local sonic_vars = {
+	x = 60,
+	y = 0
+}
+	
+local function draw_sonic()
+	love.graphics.rectangle('line',sonic_vars.x,sonic_vars.y+2,17,33)
+	
+	if #ray_hitLists == 0 then
+		sonic_vars.y = sonic_vars.y + 1
+	end
+	
+	--raycasting & collision stuff
+	ray_hitLists = {}
+	
+	cast1 = World:rayCast(sonic_vars.x, sonic_vars.y+19, sonic_vars.x, sonic_vars.y+38, worldRayCastCallback)
+	cast2 = World:rayCast(sonic_vars.x+17, sonic_vars.y+19, sonic_vars.x+17, sonic_vars.y+38, worldRayCastCallback)
+	
+	love.graphics.setLineWidth(3)
+	love.graphics.setColor(1, 1, 1, .4)
+	love.graphics.line(sonic_vars.x, sonic_vars.y+19, sonic_vars.x, sonic_vars.y+38)
+	love.graphics.line(sonic_vars.x+17, sonic_vars.y+19, sonic_vars.x+17, sonic_vars.y+38)	
+	love.graphics.setLineWidth(1)
+
+	for i, hit in ipairs(ray_hitLists) do
+		love.graphics.setColor(1, 0, 0)
+		love.graphics.print(i, hit.x, hit.y)
+		love.graphics.circle("line", hit.x, hit.y, 3)
+		love.graphics.setColor(0, 1, 0)
+		love.graphics.line(hit.x, hit.y, hit.x + hit.xn * 25, hit.y + hit.yn * 25)
+	end	
 end
 
 local right 
@@ -94,22 +151,25 @@ function state_draw()
 	end
 	
 
-	love.graphics.push()
+
 	width, height = love.graphics.getDimensions( )
 	
     love.graphics.translate(-camera.x, -camera.y)
 	love.graphics.scale( camera.scale + width/initial_width - 1, camera.scale + width/initial_width - 1)
 
+	love.graphics.push()
     for i, v in ipairs(to_render) do
         if v:getType() == "polygon" then
             love.graphics.polygon("line", v:getPoints())
+		
         elseif v:getType() == "edge" then
             love.graphics.line(v:getPoints())
+			-- i have to create a fixture somehow
         else
             love.graphics.circle("line", v.x, v.y, v:getRadius())
         end
     end
-	
+	draw_sonic()
 	love.graphics.pop()
 end
 
