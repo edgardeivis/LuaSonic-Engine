@@ -1,6 +1,21 @@
+local sonic_vars = {
+	x = 60,
+	y = 0,
+	x_speed = 0,
+	y_speed = 0,
+	on_ground = false
+}
+	
+local constants = {
+	air_acceleration_speed = 0.09375,
+	gravity_force = 0.21875,
+	top_speed = 6
+}	
+
 local ray_hitLists = {}
 
 function worldRayCastCallback(fixture, x, y, xn, yn, fraction)
+
 	local hit = {}
 	hit.fixture = fixture
 	hit.x, hit.y = x, y
@@ -16,7 +31,7 @@ end
 local camera = {
 	x = 0,
 	y = 0,
-	scale = 0.8
+	scale = 1.8
 }
 
 local placed = {}
@@ -31,6 +46,8 @@ local level_info = {
 
 function love.update(dt)
 	World:update(dt)
+	sonic_vars.x = sonic_vars.x + sonic_vars.x_speed
+	sonic_vars.y = sonic_vars.y + sonic_vars.y_speed
 end
 
 local function drawcurve(x1, y1, x2, y2, iterations, curvature)
@@ -91,30 +108,51 @@ function love.load()
 	love.physics.setMeter(1)
 	
 	World = love.physics.newWorld()
+	Terrain = {}
+	Terrain.Body = love.physics.newBody( World, 0, 0, 'static' )
 	
-	load_level('hello_world')
+	
+	load_level('test_level')
 end
 
 
-local sonic_vars = {
-	x = 60,
-	y = 0
-}
+
 	
 local function draw_sonic()
-	love.graphics.rectangle('line',sonic_vars.x,sonic_vars.y+2,17,33)
-	
+
 	if #ray_hitLists == 0 then
-		sonic_vars.y = sonic_vars.y + 1
+		sonic_vars.on_ground = false
+	else
+		sonic_vars.on_ground = true
 	end
 	
+	love.graphics.rectangle('line',sonic_vars.x,sonic_vars.y+2,17,33)
+	
+	camera.x = sonic_vars.x
+	camera.y = sonic_vars.y
+	
+	if sonic_vars.y_speed > 16 then
+		sonic_vars.y_speed = 16
+	end
+	
+	
+	if sonic_vars.on_ground == false then
+		sonic_vars.y_speed = (sonic_vars.y_speed + constants.gravity_force)
+	elseif sonic_vars.on_ground == true then
+		sonic_vars.y_speed = 0
+	end
+
+	
+
+	
+
 	--raycasting & collision stuff
 	ray_hitLists = {}
 	
 	cast1 = World:rayCast(sonic_vars.x, sonic_vars.y+19, sonic_vars.x, sonic_vars.y+38, worldRayCastCallback)
 	cast2 = World:rayCast(sonic_vars.x+17, sonic_vars.y+19, sonic_vars.x+17, sonic_vars.y+38, worldRayCastCallback)
 	
-	love.graphics.setLineWidth(3)
+	love.graphics.setLineWidth(2)
 	love.graphics.setColor(1, 1, 1, .4)
 	love.graphics.line(sonic_vars.x, sonic_vars.y+19, sonic_vars.x, sonic_vars.y+38)
 	love.graphics.line(sonic_vars.x+17, sonic_vars.y+19, sonic_vars.x+17, sonic_vars.y+38)	
@@ -122,7 +160,6 @@ local function draw_sonic()
 
 	for i, hit in ipairs(ray_hitLists) do
 		love.graphics.setColor(1, 0, 0)
-		love.graphics.print(i, hit.x, hit.y)
 		love.graphics.circle("line", hit.x, hit.y, 3)
 		love.graphics.setColor(0, 1, 0)
 		love.graphics.line(hit.x, hit.y, hit.x + hit.xn * 25, hit.y + hit.yn * 25)
@@ -142,6 +179,7 @@ function state_draw()
 	down = love.keyboard.isDown('down')
 		
 	to_render = {}
+	love.graphics.setColor(1, 1, 1)
 	for i,v in pairs(placed) do
 		if v.curvature ~= nil then
 			drawcurve(placed[i].x1, placed[i].y1, placed[i].x2, placed[i].y2, placed[i].iterations, placed[i].curvature)
@@ -164,6 +202,7 @@ function state_draw()
 		
         elseif v:getType() == "edge" then
             love.graphics.line(v:getPoints())
+			love.physics.newFixture(Terrain.Body , v)
 			-- i have to create a fixture somehow
         else
             love.graphics.circle("line", v.x, v.y, v:getRadius())
