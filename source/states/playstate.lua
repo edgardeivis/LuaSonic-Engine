@@ -30,7 +30,7 @@ end
 
 local camera = {
 	x = 0,
-	y = 0,
+	y = 250,
 	scale = 1.8
 }
 
@@ -46,8 +46,7 @@ local level_info = {
 
 function love.update(dt)
 	World:update(dt)
-	sonic_vars.x = sonic_vars.x + sonic_vars.x_speed
-	sonic_vars.y = sonic_vars.y + sonic_vars.y_speed
+
 end
 
 local function drawcurve(x1, y1, x2, y2, iterations, curvature)
@@ -115,43 +114,29 @@ function love.load()
 	load_level('test_level')
 end
 
-
-
+local right 
+local left 
+local up 
+local down 
 	
 local function draw_sonic()
 
-	if #ray_hitLists == 0 then
-		sonic_vars.on_ground = false
-	else
-		sonic_vars.on_ground = true
+	right = love.keyboard.isDown('right')
+	left = love.keyboard.isDown('left')
+	up = love.keyboard.isDown('up')
+	down = love.keyboard.isDown('down')
+	
+	if right then
+		sonic_vars.x = sonic_vars.x + 4
+	elseif left then
+		sonic_vars.x = sonic_vars.x - 4
 	end
 	
-	love.graphics.rectangle('line',sonic_vars.x,sonic_vars.y+2,17,33)
-	
-	camera.x = sonic_vars.x
-	camera.y = sonic_vars.y
-	
-	if sonic_vars.y_speed > 16 then
-		sonic_vars.y_speed = 16
-	end
-	
-	
-	if sonic_vars.on_ground == false then
-		sonic_vars.y_speed = (sonic_vars.y_speed + constants.gravity_force)
-	elseif sonic_vars.on_ground == true then
-		sonic_vars.y_speed = 0
-	end
-
-	
-
-	
-
 	--raycasting & collision stuff
 	ray_hitLists = {}
 	
 	cast1 = World:rayCast(sonic_vars.x, sonic_vars.y+19, sonic_vars.x, sonic_vars.y+38, worldRayCastCallback)
 	cast2 = World:rayCast(sonic_vars.x+17, sonic_vars.y+19, sonic_vars.x+17, sonic_vars.y+38, worldRayCastCallback)
-	
 	love.graphics.setLineWidth(2)
 	love.graphics.setColor(1, 1, 1, .4)
 	love.graphics.line(sonic_vars.x, sonic_vars.y+19, sonic_vars.x, sonic_vars.y+38)
@@ -159,24 +144,44 @@ local function draw_sonic()
 	love.graphics.setLineWidth(1)
 
 	for i, hit in ipairs(ray_hitLists) do
+		sonic_vars.y = hit.y-38
 		love.graphics.setColor(1, 0, 0)
 		love.graphics.circle("line", hit.x, hit.y, 3)
 		love.graphics.setColor(0, 1, 0)
 		love.graphics.line(hit.x, hit.y, hit.x + hit.xn * 25, hit.y + hit.yn * 25)
 	end	
-end
+	
+	love.graphics.setColor(1, 1, 1)
+	
+	camera.x = sonic_vars.x*camera.scale - 400
+	camera.y = sonic_vars.y*camera.scale - 250
+	love.graphics.rectangle('line',sonic_vars.x,sonic_vars.y+2,17,33)
+	
+	if sonic_vars.y_speed > 16 then
+		sonic_vars.y_speed = 16
+	end
+	
+	sonic_vars.x = sonic_vars.x + sonic_vars.x_speed
+	sonic_vars.y = sonic_vars.y + sonic_vars.y_speed
+	
+	if #ray_hitLists == 0 then
+		sonic_vars.on_ground = false
+	else
+		sonic_vars.on_ground = true
+	end
+	
+	if sonic_vars.on_ground == false then
+		sonic_vars.y_speed = (sonic_vars.y_speed + constants.gravity_force)
+	elseif sonic_vars.on_ground == true then
+		sonic_vars.y_speed = 0
+	end
+		
 
-local right 
-local left 
-local up 
-local down 
+end
 
 function state_draw()
 		
-	right = love.keyboard.isDown('right')
-	left = love.keyboard.isDown('left')
-	up = love.keyboard.isDown('up')
-	down = love.keyboard.isDown('down')
+
 		
 	to_render = {}
 	love.graphics.setColor(1, 1, 1)
