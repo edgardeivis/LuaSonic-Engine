@@ -148,11 +148,6 @@ local function draw_sonic()
 			end
 		elseif sonic_vars.ground_speed < constants.top_speed then
 			sonic_vars.ground_speed = sonic_vars.ground_speed + constants.acceleration_speed	
-			if sonic_vars.ground_speed >= constants.top_speed then
-				sonic_vars.cur_action = 'run'
-			else
-				sonic_vars.cur_action = 'jog'
-			end
 			sonic_vars.invert = 1
 			if sonic_vars.ground_speed >= constants.top_speed then
 				sonic_vars.ground_speed = constants.top_speed
@@ -166,11 +161,6 @@ local function draw_sonic()
 			end
 		elseif sonic_vars.ground_speed > -constants.top_speed then
 			sonic_vars.ground_speed = sonic_vars.ground_speed - constants.acceleration_speed	
-			if sonic_vars.ground_speed <= -constants.top_speed then
-				sonic_vars.cur_action = 'run'
-			else
-				sonic_vars.cur_action = 'jog'
-			end
 			sonic_vars.invert = -1
 			if sonic_vars.ground_speed <= -constants.top_speed then
 				sonic_vars.ground_speed = -constants.top_speed
@@ -180,7 +170,21 @@ local function draw_sonic()
 		sonic_vars.ground_speed = sonic_vars.ground_speed - math.min(math.abs(sonic_vars.ground_speed),constants.friction_speed) * sign(sonic_vars.ground_speed)
 	end
 	
-
+	if sonic_vars.ground_speed ~= 0 then
+		if sonic_vars.invert == -1 then
+			if sonic_vars.ground_speed <= -constants.top_speed then
+				sonic_vars.cur_action = 'run'
+			else
+				sonic_vars.cur_action = 'jog'
+			end
+		else
+			if sonic_vars.ground_speed >= constants.top_speed then
+				sonic_vars.cur_action = 'run'
+			else
+				sonic_vars.cur_action = 'jog'
+			end
+		end
+	end
 	--raycasting & collision stuff
 	
 	cast1 = World:rayCast(sonic_vars.x, sonic_vars.y+19, sonic_vars.x, sonic_vars.y+38, worldRayCastCallback)
