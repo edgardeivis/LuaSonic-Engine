@@ -3,19 +3,24 @@ local sonic_vars = {
 	y = 0,
 	x_speed = 0,
 	y_speed = 0,
+	ground_speed = 0,
+	ground_angle = 0,
 	on_ground = false
 }
 	
 local constants = {
+	acceleration_speed = 0.046875,
+	deceleration_speed = 0.5,
+	friction_speed = 0.046875,
 	air_acceleration_speed = 0.09375,
 	gravity_force = 0.21875,
-	top_speed = 6
+	top_speed = 6,
+	jump_force = 6.5
 }	
 
 local ray_hitLists = {}
 
 function worldRayCastCallback(fixture, x, y, xn, yn, fraction)
-
 	local hit = {}
 	hit.fixture = fixture
 	hit.x, hit.y = x, y
@@ -30,7 +35,7 @@ end
 
 local camera = {
 	x = 0,
-	y = 250,
+	y = 0,
 	scale = 1.8
 }
 
@@ -45,8 +50,7 @@ local level_info = {
 }
 
 function love.update(dt)
-	World:update(dt)
-
+	-- World:update(dt)
 end
 
 local function drawcurve(x1, y1, x2, y2, iterations, curvature)
@@ -72,35 +76,39 @@ local function drawedge(x1, y1, x2, y2)
 end
 
 function love.keypressed( key, scancode, isrepeat )
-
+	if (key == 'a' or key == 's') and sonic_vars.on_ground == true then
+		sonic_vars.x_speed = sonic_vars.x_speed - constants.jump_force * math.sin(sonic_vars.ground_angle)	
+		sonic_vars.y_speed = sonic_vars.y_speed - constants.jump_force * math.cos(sonic_vars.ground_angle)
+		sonic_vars.y = sonic_vars.y - 1
+	end
 end
 
 local function load_level(level_name)
-		for i,v in pairs(love.filesystem.getDirectoryItems('levels')) do
-			if string.sub(v,0,-6) == level_name then
-				local inside_file = love.filesystem.read('levels/'..v)
-				local file_line = inside_file:split("\n")
-				local text = file_line[1]
+	for i,v in pairs(love.filesystem.getDirectoryItems('levels')) do
+		if string.sub(v,0,-6) == level_name then
+			local inside_file = love.filesystem.read('levels/'..v)
+			local file_line = inside_file:split("\n")
+			local text = file_line[1]
+			inside_file = text:split("/")
+			level_info.size_width = tonumber(inside_file[1])
+			level_info.size_height = tonumber(inside_file[2])
+			level_info.act = tonumber(inside_file[3])
+			for i=2,#file_line-1 do 
+				local text = file_line[i]
 				inside_file = text:split("/")
-				level_info.size_width = tonumber(inside_file[1])
-				level_info.size_height = tonumber(inside_file[2])
-				level_info.act = tonumber(inside_file[3])
-				for i=2,#file_line-1 do 
-					local text = file_line[i]
-					inside_file = text:split("/")
-					local edge_table
-					for i=1,#inside_file do
-						inside_file[i] = tonumber(inside_file[i])
-					end
-					if inside_file[6] ~= nil then
-						edge_table = {id = inside_file[1],x1 = inside_file[2],y1 = inside_file[3],x2 = inside_file[4],y2 = inside_file[5],iterations = inside_file[6],curvature = inside_file[7]}
-					else
-						edge_table = {id = inside_file[1],x1 = inside_file[2],y1 = inside_file[3],x2 = inside_file[4],y2 = inside_file[5]}
-					end
-					table.insert(placed,edge_table)
+				local edge_table
+				for i=1,#inside_file do
+					inside_file[i] = tonumber(inside_file[i])
 				end
+				if inside_file[6] ~= nil then
+					edge_table = {id = inside_file[1],x1 = inside_file[2],y1 = inside_file[3],x2 = inside_file[4],y2 = inside_file[5],iterations = inside_file[6],curvature = inside_file[7]}
+				else
+					edge_table = {id = inside_file[1],x1 = inside_file[2],y1 = inside_file[3],x2 = inside_file[4],y2 = inside_file[5]}
+				end
+				table.insert(placed,edge_table)
 			end
 		end
+	end
 end
 
 function love.load()
@@ -125,15 +133,35 @@ local function draw_sonic()
 	left = love.keyboard.isDown('left')
 	up = love.keyboard.isDown('up')
 	down = love.keyboard.isDown('down')
-	
+		
 	if right then
-		sonic_vars.x = sonic_vars.x + 4
+		if sonic_vars.ground_speed < 0 then
+			sonic_vars.ground_speed = sonic_vars.ground_speed + constants.deceleration_speed		
+			if sonic_vars.ground_speed >= 0 then
+				sonic_vars.ground_speed = 0.5
+			end
+		elseif sonic_vars.ground_speed < constants.top_speed then
+			sonic_vars.ground_speed = sonic_vars.ground_speed + constants.acceleration_speed	
+			if sonic_vars.ground_speed >= constants.top_speed then
+				sonic_vars.ground_speed = constants.top_speed
+			end
+		end
 	elseif left then
-		sonic_vars.x = sonic_vars.x - 4
+		if sonic_vars.ground_speed > 0 then
+			sonic_vars.ground_speed = sonic_vars.ground_speed - constants.deceleration_speed		
+			if sonic_vars.ground_speed <= 0 then
+				sonic_vars.ground_speed = -0.5
+			end
+		elseif sonic_vars.ground_speed > -constants.top_speed then
+			sonic_vars.ground_speed = sonic_vars.ground_speed - constants.acceleration_speed	
+			if sonic_vars.ground_speed <= -constants.top_speed then
+				sonic_vars.ground_speed = -constants.top_speed
+			end
+		end
+	else
+		sonic_vars.ground_speed = sonic_vars.ground_speed - math.min(math.abs(sonic_vars.ground_speed),constants.friction_speed) * sign(sonic_vars.ground_speed)
 	end
-	
 	--raycasting & collision stuff
-	ray_hitLists = {}
 	
 	cast1 = World:rayCast(sonic_vars.x, sonic_vars.y+19, sonic_vars.x, sonic_vars.y+38, worldRayCastCallback)
 	cast2 = World:rayCast(sonic_vars.x+17, sonic_vars.y+19, sonic_vars.x+17, sonic_vars.y+38, worldRayCastCallback)
@@ -142,7 +170,6 @@ local function draw_sonic()
 	love.graphics.line(sonic_vars.x, sonic_vars.y+19, sonic_vars.x, sonic_vars.y+38)
 	love.graphics.line(sonic_vars.x+17, sonic_vars.y+19, sonic_vars.x+17, sonic_vars.y+38)	
 	love.graphics.setLineWidth(1)
-
 	for i, hit in ipairs(ray_hitLists) do
 		sonic_vars.y = hit.y-38
 		love.graphics.setColor(1, 0, 0)
@@ -150,7 +177,6 @@ local function draw_sonic()
 		love.graphics.setColor(0, 1, 0)
 		love.graphics.line(hit.x, hit.y, hit.x + hit.xn * 25, hit.y + hit.yn * 25)
 	end	
-	
 	love.graphics.setColor(1, 1, 1)
 	
 	camera.x = sonic_vars.x*camera.scale - 400
@@ -161,7 +187,7 @@ local function draw_sonic()
 		sonic_vars.y_speed = 16
 	end
 	
-	sonic_vars.x = sonic_vars.x + sonic_vars.x_speed
+	sonic_vars.x = sonic_vars.x + sonic_vars.ground_speed + sonic_vars.x_speed
 	sonic_vars.y = sonic_vars.y + sonic_vars.y_speed
 	
 	if #ray_hitLists == 0 then
@@ -175,14 +201,13 @@ local function draw_sonic()
 	elseif sonic_vars.on_ground == true then
 		sonic_vars.y_speed = 0
 	end
-		
+	ray_hitLists = {}
+
 
 end
-
+local createdFixtures = {}
 function state_draw()
-		
 
-		
 	to_render = {}
 	love.graphics.setColor(1, 1, 1)
 	for i,v in pairs(placed) do
@@ -193,8 +218,6 @@ function state_draw()
 		end
 	end
 	
-
-
 	width, height = love.graphics.getDimensions( )
 	
     love.graphics.translate(-camera.x, -camera.y)
@@ -207,8 +230,8 @@ function state_draw()
 		
         elseif v:getType() == "edge" then
             love.graphics.line(v:getPoints())
-			love.physics.newFixture(Terrain.Body , v)
-			-- i have to create a fixture somehow
+			 local fixture = createdFixtures[i] or love.physics.newFixture(Terrain.Body, v)
+			 createdFixtures[i] = fixture
         else
             love.graphics.circle("line", v.x, v.y, v:getRadius())
         end

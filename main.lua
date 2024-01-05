@@ -3,6 +3,10 @@ initial_width, initial_height = love.graphics.getDimensions( ) --idk if this is 
 ffi = require "ffi"
 statelibrary = require 'source.gamestate'
 
+function sign(number)
+    return number > 0 and 1 or (number == 0 and 0 or -1)
+end
+
 --thanks stackoverflow
 function string:split( inSplitPattern, outResults )
   if not outResults then
@@ -31,6 +35,8 @@ loadgame()
 
 function love.draw()
 
+	love.graphics.print('FPS: '.. love.timer.getFPS() , 10, 10)
 	gamestate_draw()
+
 end
 
