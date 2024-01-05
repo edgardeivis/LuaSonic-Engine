@@ -1,4 +1,8 @@
 local sonic_vars = {
+	cur_action = 'stand',
+	cur_frame = 1,
+	invert = 1,
+	frame_delay = 0,
 	x = 60,
 	y = 0,
 	x_speed = 0,
@@ -111,7 +115,7 @@ local function load_level(level_name)
 	end
 end
 
-function love.load()
+local function state_load()
 	love.physics.setMeter(1)
 	
 	World = love.physics.newWorld()
@@ -121,6 +125,8 @@ function love.load()
 	
 	load_level('test_level')
 end
+
+state_load()
 
 local right 
 local left 
@@ -143,6 +149,12 @@ local function draw_sonic()
 		elseif sonic_vars.ground_speed < constants.top_speed then
 			sonic_vars.ground_speed = sonic_vars.ground_speed + constants.acceleration_speed	
 			if sonic_vars.ground_speed >= constants.top_speed then
+				sonic_vars.cur_action = 'run'
+			else
+				sonic_vars.cur_action = 'jog'
+			end
+			sonic_vars.invert = 1
+			if sonic_vars.ground_speed >= constants.top_speed then
 				sonic_vars.ground_speed = constants.top_speed
 			end
 		end
@@ -155,12 +167,20 @@ local function draw_sonic()
 		elseif sonic_vars.ground_speed > -constants.top_speed then
 			sonic_vars.ground_speed = sonic_vars.ground_speed - constants.acceleration_speed	
 			if sonic_vars.ground_speed <= -constants.top_speed then
+				sonic_vars.cur_action = 'run'
+			else
+				sonic_vars.cur_action = 'jog'
+			end
+			sonic_vars.invert = -1
+			if sonic_vars.ground_speed <= -constants.top_speed then
 				sonic_vars.ground_speed = -constants.top_speed
 			end
 		end
 	else
 		sonic_vars.ground_speed = sonic_vars.ground_speed - math.min(math.abs(sonic_vars.ground_speed),constants.friction_speed) * sign(sonic_vars.ground_speed)
 	end
+	
+
 	--raycasting & collision stuff
 	
 	cast1 = World:rayCast(sonic_vars.x, sonic_vars.y+19, sonic_vars.x, sonic_vars.y+38, worldRayCastCallback)
@@ -171,7 +191,10 @@ local function draw_sonic()
 	love.graphics.line(sonic_vars.x+17, sonic_vars.y+19, sonic_vars.x+17, sonic_vars.y+38)	
 	love.graphics.setLineWidth(1)
 	for i, hit in ipairs(ray_hitLists) do
-		sonic_vars.y = hit.y-38
+		table.sort(ray_hitLists, function(a,b) return a.y < b.y end)
+		sonic_vars.y = ray_hitLists[1].y-38
+		local angle_rad = math.atan2(ray_hitLists[1].xn ,ray_hitLists[1].yn)
+		sonic_vars.ground_angle = math.floor( -(math.deg(angle_rad) - 180))
 		love.graphics.setColor(1, 0, 0)
 		love.graphics.circle("line", hit.x, hit.y, 3)
 		love.graphics.setColor(0, 1, 0)
@@ -181,7 +204,25 @@ local function draw_sonic()
 	
 	camera.x = sonic_vars.x*camera.scale - 400
 	camera.y = sonic_vars.y*camera.scale - 250
-	love.graphics.rectangle('line',sonic_vars.x,sonic_vars.y+2,17,33)
+	love.graphics.setColor(1, 0.25, 0.5,0.25)
+	love.graphics.rectangle('fill',sonic_vars.x,sonic_vars.y+2,17,33)
+	love.graphics.setColor(1, 1,1)
+	local sonic_sprite = love.graphics.newImage('assets/sprites/sonic/'..sonic_vars.cur_action .. '.png')
+	love.graphics.draw(sonic_sprite,love.graphics.newQuad(59*(sonic_vars.cur_frame-1),0,59,59, sonic_sprite),sonic_vars.x+7,sonic_vars.y+16, math.rad(sonic_vars.ground_angle) ,sonic_vars.invert,1,30,30,0,0)	--sorry for the mess
+	if sonic_sprite:getWidth()/59 ~= 1 then
+		if sonic_vars.frame_delay > 10/ math.abs(sonic_vars.ground_speed) then
+			sonic_vars.frame_delay = 0
+			sonic_vars.cur_frame = sonic_vars.cur_frame + 1
+			if sonic_vars.cur_frame > sonic_sprite:getWidth()/59 then
+				sonic_vars.cur_frame = 1
+			end
+		else
+			sonic_vars.frame_delay = sonic_vars.frame_delay + 1
+		end
+	end
+	if sonic_vars.x_speed ~= 0 then
+		sonic_vars.x_speed = sonic_vars.x_speed - math.min(math.abs(sonic_vars.x_speed),constants.friction_speed) * sign(sonic_vars.x_speed)
+	end
 	
 	if sonic_vars.y_speed > 16 then
 		sonic_vars.y_speed = 16
@@ -200,6 +241,10 @@ local function draw_sonic()
 		sonic_vars.y_speed = (sonic_vars.y_speed + constants.gravity_force)
 	elseif sonic_vars.on_ground == true then
 		sonic_vars.y_speed = 0
+		if sonic_vars.ground_speed == 0 and sonic_vars.cur_action ~= 'stand' then
+			sonic_vars.cur_frame = 1
+			sonic_vars.cur_action = 'stand'
+		end
 	end
 	ray_hitLists = {}
 

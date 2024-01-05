@@ -82,7 +82,7 @@ function love.keypressed( key, scancode, isrepeat )
     end
 end
 
-function love.load()
+local function state_load()
     imgui.love.Init()
     iterations_slider = ffi.new("int[0]")
     curvature_slider = ffi.new("float[0]")
@@ -100,6 +100,8 @@ function love.load()
 	level_info.size_height[0] = 1280
 	imgui.GetIO().ConfigFlags = 64
 end
+
+state_load()
 
 function love.update(dt)
     imgui.love.Update(dt)
@@ -198,6 +200,7 @@ function imgui_stuff()
 
 		end
 		if imgui.MenuItem_Bool('Exit Editor') then
+		    gamestate_switch('playstate')
 		end
 	imgui.EndMenu()
 	end

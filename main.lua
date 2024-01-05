@@ -28,7 +28,7 @@ function loadgame()
 	for i, v in pairs(states) do
 		print('state'..i..': '..v)
 	end
-    gamestate_switch('playstate')
+    gamestate_switch('level_editor')
 end
 
 loadgame()
