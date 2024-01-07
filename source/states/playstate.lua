@@ -1,6 +1,7 @@
 local sonic_vars = {
 	cur_action = 'stand',
 	cur_frame = 1,
+	cur_direction = 0,
 	invert = 1,
 	frame_delay = 0,
 	x = 60,
@@ -83,7 +84,8 @@ function love.keypressed( key, scancode, isrepeat )
 	if (key == 'a' or key == 's') and sonic_vars.on_ground == true then
 		sonic_vars.x_speed = sonic_vars.x_speed - constants.jump_force * math.sin(sonic_vars.ground_angle)	
 		sonic_vars.y_speed = sonic_vars.y_speed - constants.jump_force * math.cos(sonic_vars.ground_angle)
-		sonic_vars.y = sonic_vars.y - 1
+		love.audio.newSource("assets/sounds/jump.mp3", "static"):play()
+		sonic_vars.y = sonic_vars.y - 3
 	end
 end
 
@@ -186,17 +188,33 @@ local function draw_sonic()
 		end
 	end
 	--raycasting & collision stuff
-	
-	cast1 = World:rayCast(sonic_vars.x, sonic_vars.y+19, sonic_vars.x, sonic_vars.y+38, worldRayCastCallback)
-	cast2 = World:rayCast(sonic_vars.x+17, sonic_vars.y+19, sonic_vars.x+17, sonic_vars.y+38, worldRayCastCallback)
-	love.graphics.setLineWidth(2)
-	love.graphics.setColor(1, 1, 1, .4)
-	love.graphics.line(sonic_vars.x, sonic_vars.y+19, sonic_vars.x, sonic_vars.y+38)
-	love.graphics.line(sonic_vars.x+17, sonic_vars.y+19, sonic_vars.x+17, sonic_vars.y+38)	
+	if sonic_vars.cur_direction == 0 then
+		cast1 = World:rayCast(sonic_vars.x, sonic_vars.y+19, sonic_vars.x, sonic_vars.y+40, worldRayCastCallback)
+		cast2 = World:rayCast(sonic_vars.x+17, sonic_vars.y+19, sonic_vars.x+17, sonic_vars.y+40, worldRayCastCallback)
+		
+		love.graphics.setLineWidth(2)
+		love.graphics.setColor(1, 1, 1, .4)
+		
+		love.graphics.line(sonic_vars.x, sonic_vars.y+19, sonic_vars.x, sonic_vars.y+40)
+		love.graphics.line(sonic_vars.x+17, sonic_vars.y+19, sonic_vars.x+17, sonic_vars.y+40)	
+	elseif sonic_vars.cur_direction == 1 then
+		cast1 = World:rayCast(sonic_vars.x+8, sonic_vars.y, sonic_vars.x+32, sonic_vars.y, worldRayCastCallback)
+		cast2 = World:rayCast(sonic_vars.x+8, sonic_vars.y+17, sonic_vars.x+32, sonic_vars.y+17, worldRayCastCallback)
+		
+		love.graphics.setLineWidth(2)
+		love.graphics.setColor(1, 1, 1, .4)
+		
+		love.graphics.line(sonic_vars.x+8, sonic_vars.y, sonic_vars.x+32, sonic_vars.y)
+		love.graphics.line(sonic_vars.x+8, sonic_vars.y+17, sonic_vars.x+32, sonic_vars.y+17)	
+	end
 	love.graphics.setLineWidth(1)
 	for i, hit in ipairs(ray_hitLists) do
 		table.sort(ray_hitLists, function(a,b) return a.y < b.y end)
-		sonic_vars.y = ray_hitLists[1].y-38
+		if sonic_vars.cur_direction == 0 then
+			sonic_vars.y = ray_hitLists[1].y-38
+		elseif sonic_vars.cur_direction == 1 then
+			sonic_vars.x = ray_hitLists[1].x-30
+		end
 		local angle_rad = math.atan2(ray_hitLists[1].xn ,ray_hitLists[1].yn)
 		sonic_vars.ground_angle = math.floor( -(math.deg(angle_rad) - 180))
 		love.graphics.setColor(1, 0, 0)
@@ -204,6 +222,12 @@ local function draw_sonic()
 		love.graphics.setColor(0, 1, 0)
 		love.graphics.line(hit.x, hit.y, hit.x + hit.xn * 25, hit.y + hit.yn * 25)
 	end	
+	print(sonic_vars.ground_angle)
+	if (sonic_vars.ground_angle > 226 and sonic_vars.ground_angle < 314) then
+		sonic_vars.cur_direction = 1
+	else
+		sonic_vars.cur_direction = 0
+	end
 	love.graphics.setColor(1, 1, 1)
 	
 	camera.x = sonic_vars.x*camera.scale - 400
@@ -232,8 +256,13 @@ local function draw_sonic()
 		sonic_vars.y_speed = 16
 	end
 	
-	sonic_vars.x = sonic_vars.x + sonic_vars.ground_speed + sonic_vars.x_speed
-	sonic_vars.y = sonic_vars.y + sonic_vars.y_speed
+	if sonic_vars.cur_direction == 1 then
+		sonic_vars.y = sonic_vars.y + -sonic_vars.ground_speed + sonic_vars.y_speed
+		sonic_vars.x = sonic_vars.x + sonic_vars.x_speed	
+	else
+		sonic_vars.x = sonic_vars.x + sonic_vars.ground_speed + sonic_vars.x_speed
+		sonic_vars.y = sonic_vars.y + sonic_vars.y_speed
+	end
 	
 	if #ray_hitLists == 0 then
 		sonic_vars.on_ground = false
