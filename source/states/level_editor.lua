@@ -1,6 +1,8 @@
+
 require "source.grids"
 imgui = require "cimgui"
 require "source.imguistuff"
+require "source.objects"
 local appdata_location = love.filesystem.getAppdataDirectory()
 
 local folder = love.filesystem.createDirectory("exported_levels")
@@ -219,7 +221,9 @@ function imgui_stuff()
 			selected_line = placed[#placed]
 		end
 		
-		imgui.MenuItem_Bool('object browser')
+		if imgui.MenuItem_Bool('object browser') then
+
+		end
 		
 		if imgui.MenuItem_Bool('reset camera') then
 			camera.x = 0
@@ -231,7 +235,14 @@ function imgui_stuff()
 	
 	imgui.EndMainMenuBar()
 	--------------------------
-
+	imgui.SetNextWindowSize({256, 256}, imgui.ImGuiCond_FirstUseEver)
+	imgui.SetNextWindowPos({64, 64}, imgui.ImGuiCond_FirstUseEver)		
+	imgui.Begin("Object Browser")
+		local img = love.graphics.newImage('assets/sprites/editor/objects/spawnpoint.png')
+		local size = imgui.ImVec2_Float(64,64) --funny
+		imgui.Image(img,size)
+		imgui.Text("Spawnpoint")
+	imgui.End() 
 	--------------------------
 	if selected_line ~= nil then
 		create_line_editor_window()
@@ -249,7 +260,7 @@ local function drawcurve(x1, y1, x2, y2, iterations, curvature)
     local curves = {}
 
     for i = 1, iterations+1 do
-        local t = (i + curvature) / (curvature + (iterations - 1))
+        local t = (i + curvature) / (curvature + (iterations +1))
         tabley[i] = y1 + (y2 / iterations * (i - 1))
         tablex[i] = x1 + ((x2 / iterations) * (i - 1)) / t
     end
@@ -274,6 +285,9 @@ local ctrl
 local x, y
 local x_editor
 local y_editor
+
+local point_open = love.graphics.newImage('assets/sprites/editor/ui/point_open.png')
+local point_closed = love.graphics.newImage('assets/sprites/editor/ui/point_closed.png')	
 	
 function state_draw()
 	x, y = love.mouse.getPosition()
@@ -307,7 +321,7 @@ function state_draw()
 	end
 	for i,v in pairs(placed) do
 		if v.curvature ~= nil then
-			drawcurve(placed[i].x1, placed[i].y1, placed[i].x2, placed[i].y2, placed[i].iterations, placed[i].curvature)
+			drawcurve(placed[i].x1, placed[i].y1, placed[i].x2, placed[i].y2, placed[i].iterations, placed[i].curvature)	
 		else
 			drawedge(placed[i].x1, placed[i].y1, placed[i].x2, placed[i].y2)
 		end
@@ -339,7 +353,17 @@ function state_draw()
     love.graphics.translate(-camera.x, -camera.y)
 	love.graphics.scale( camera.scale + width/initial_width - 1, camera.scale + width/initial_width - 1)
 	grids_draw()
-
+	--[[ draw points for mouse compability
+	for i,v in pairs(placed) do
+		if v.curvature ~= nil then
+			love.graphics.draw(point_open,placed[i].x1,placed[i].y1,0,2,2)
+			love.graphics.draw(point_open,placed[i].x1+placed[i].x2,placed[i].y1+placed[i].y2,0,2,2)
+		else
+			love.graphics.draw(point_open,placed[i].x1,placed[i].y1,0,2,2)
+			love.graphics.draw(point_open,placed[i].x1+placed[i].x2,placed[i].y1+placed[i].y2,0,2,2)
+		end
+	end
+	]]
     love.graphics.setColor(1, 1, 1)
     for i, v in ipairs(to_render) do
         if v:getType() == "polygon" then

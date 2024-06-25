@@ -64,7 +64,7 @@ local function drawcurve(x1, y1, x2, y2, iterations, curvature)
     local curves = {}
 
     for i = 1, iterations+1 do
-        local t = (i + curvature) / (curvature + (iterations - 1))
+        local t = (i + curvature) / (curvature + (iterations + 1))
         tabley[i] = y1 + (y2 / iterations * (i - 1))
         tablex[i] = x1 + ((x2 / iterations) * (i - 1)) / t
     end

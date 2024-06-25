@@ -5,7 +5,7 @@ function grids_load(width,height)
         local precolor = love.graphics.getColor()
         love.graphics.setColor(255, 255, 255, 0.3)
         for i2 = -180 / 3, 180 / 3 do
-            love.graphics.rectangle("line", i * 32, i2 * 32, 32, 32)
+            love.graphics.rectangle("line", i * 16, i2 * 16, 16, 16)
         end
 		love.graphics.setColor(255, 255, 255, 1)
     end
