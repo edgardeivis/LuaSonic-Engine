@@ -29,6 +29,7 @@ function loadgame()
 		print('state'..i..': '..v)
 	end
     gamestate_switch('level_editor')
+	love.audio.newSource("assets/sounds/ring.wav", "static"):play()
 end
 
 loadgame()

@@ -148,6 +148,7 @@ function imgui_stuff()
 				is_selected = false
 			end
 			if imgui.Selectable_Bool("line #".. placed[i].id,is_selected) then
+				love.audio.newSource("assets/sounds/switch.wav", "static"):play()
 				if placed[i].curvature ~= nil then
 					iterations_slider[0] = placed[i].iterations
 					curvature_slider[0] = placed[i].curvature
@@ -238,10 +239,17 @@ function imgui_stuff()
 	imgui.SetNextWindowSize({256, 256}, imgui.ImGuiCond_FirstUseEver)
 	imgui.SetNextWindowPos({64, 64}, imgui.ImGuiCond_FirstUseEver)		
 	imgui.Begin("Object Browser")
-		local img = love.graphics.newImage('assets/sprites/editor/objects/spawnpoint.png')
-		local size = imgui.ImVec2_Float(64,64) --funny
-		imgui.Image(img,size)
-		imgui.Text("Spawnpoint")
+	for i,v in pairs(objects) do
+		imgui.BeginGroup()
+			imgui.Selectable_Bool("##obj_".. v.editor_icon ,false,6,imgui.ImVec2_Float(64,64))
+			imgui.SameLine()
+			imgui.SetCursorPos(imgui.ImVec2_Float(10,30))
+			img = love.graphics.newImage('assets/sprites/editor/objects/'.. v.editor_icon ..'.png')
+			size = imgui.ImVec2_Float(img:getDimensions()) --funny
+			imgui.Image(img,size*1.5)
+			imgui.Text(v.editor_icon)
+		imgui.EndGroup()
+	end
 	imgui.End() 
 	--------------------------
 	if selected_line ~= nil then

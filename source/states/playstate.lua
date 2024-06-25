@@ -84,7 +84,7 @@ function love.keypressed( key, scancode, isrepeat )
 	if (key == 'a' or key == 's') and sonic_vars.on_ground == true then
 		sonic_vars.x_speed = sonic_vars.x_speed - constants.jump_force * math.sin(sonic_vars.ground_angle)	
 		sonic_vars.y_speed = sonic_vars.y_speed - constants.jump_force * math.cos(sonic_vars.ground_angle)
-		love.audio.newSource("assets/sounds/jump.mp3", "static"):play()
+		love.audio.newSource("assets/sounds/jump.wav", "static"):play()
 		sonic_vars.y = sonic_vars.y - 3
 	end
 end
