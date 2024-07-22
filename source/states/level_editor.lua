@@ -1,271 +1,63 @@
+local debug_render = true -- renders lines in-engine, instead of hiding them
 
-require "source.grids"
-imgui = require "cimgui"
-require "source.imguistuff"
-require "source.objects"
-local appdata_location = love.filesystem.getAppdataDirectory()
+require 'source.grids' -- code for rendering the grids, might move this to here instead of having it as it own .lua file
+imgui = require 'imgui' --imgui related stuff
+require 'source.inputsimgui'
+require 'source.objects' --where all the objects are stored, not for a specific level, in general
 
-local folder = love.filesystem.createDirectory("exported_levels")
+local keybinds = {
+	right,
+	left,
+	up,
+	down,
+	ctrl
+}
 
 local camera = {
 	x = 0,
 	y = 0,
+	to_x = 0,
+	to_y = 0,
 	scale = 1
 }
 
-local iterations_slider
-local curvature_slider
-local line_xy = {x1=90,y1=360,x2=360,y2=-180}
-local placed = {}
-local to_render = {}
-local selected_line
+local editor_view = love.graphics.newCanvas(540,320)
+local editor_cursor = {x = 0, y = 0}
 
-local level_info = {
-	name = ffi.new("char[32]"),
-	act = ffi.new("int[0]"),
-	size_width = ffi.new("int[0]"),
-	size_height = ffi.new("int[0]")
+local open_windows = {
+	editor_view = true,
+	object_properties = true,
+	object_list = true,
+	object_browser = true,
+	startup_popup = false --for first time users
 }
 
+local placed = {	--separated by categories
+	--lines # these two actually show up as the same category but are different objects
+	line = {},
+	curved_line = {},
+	--interactibles
+	object = {},
+	ring = {}, -- # separated from objects so it's easier to tell when all rings have been collected
+	--misc interactibles # stuff that just don't fit into regular interactibles/objects
+	flag = {} --interaction flags, stuff the player can't see but do stuff when touched or something
+}
+
+local cur_selected 
+local cur_snap = 16 -- the grid snap, default is 16, snaps to 1 , 4 , 8 , 16 , 32 , 64 , 128 and 256
+
 local function save_level()
-	lvl_name = ffi.string(level_info.name)
-	local file = love.filesystem.newFile('exported_levels/'.. lvl_name ..'.lslv')
-	local text_to_save = level_info.size_width[0] .. '/' .. level_info.size_height[0] .. '/' .. level_info.act[0] .. '\n'
-	for i,v in pairs(placed) do
-		if placed[i].curvature ~= nil then
-			text_to_save = text_to_save .. tostring(placed[i].id .. '/' .. placed[i].x1 .. '/' .. placed[i].y1 .. '/' .. placed[i].x2 .. '/' .. placed[i].y2 .. '/' .. placed[i].iterations .. '/' .. placed[i].curvature .. '\n')			
-		else
-			text_to_save = text_to_save .. tostring(placed[i].id .. '/' .. placed[i].x1 .. '/' .. placed[i].y1 .. '/' .. placed[i].x2 .. '/' .. placed[i].y2 .. '\n')
-		end
-	end
-	love.filesystem.write('exported_levels/'..lvl_name..'.lslv',text_to_save)
+
 end
 
 local function load_level()
-		for i,v in pairs(love.filesystem.getDirectoryItems('levels')) do
-			if string.sub(v,0,-6) == ffi.string(level_info.name) then
-				local inside_file = love.filesystem.read('levels/'..v)
-				local file_line = inside_file:split("\n")
-				local text = file_line[1]
-				inside_file = text:split("/")
-				level_info.size_width[0] = tonumber(inside_file[1])
-				level_info.size_height[0] = tonumber(inside_file[2])
-				level_info.act[0] = tonumber(inside_file[3])
-				grids_load(level_info.size_width[0],level_info.size_height[0])
-				for i=2,#file_line-1 do 
-					local text = file_line[i]
-					inside_file = text:split("/")
-					local edge_table
-					for i=1,#inside_file do
-						inside_file[i] = tonumber(inside_file[i])
-					end
-					if inside_file[6] ~= nil then
-						edge_table = {id = inside_file[1],x1 = inside_file[2],y1 = inside_file[3],x2 = inside_file[4],y2 = inside_file[5],iterations = inside_file[6],curvature = inside_file[7]}
-					else
-						edge_table = {id = inside_file[1],x1 = inside_file[2],y1 = inside_file[3],x2 = inside_file[4],y2 = inside_file[5]}
-					end
-					table.insert(placed,edge_table)
-				end
-			end
-		end
+
 end
 
-function love.keypressed( key, scancode, isrepeat )
-    imgui.love.KeyPressed(key)
-    if not imgui.love.GetWantCaptureKeyboard() then
-		if selected_line ~= nil then
-			if key == 'delete' then
-				table.remove(placed, selected_line.id)
-				selected_line = nil
-			elseif key == 'escape' then
-				selected_line = nil
-			end
-		end
-    end
-end
-
-local function state_load()
-    imgui.love.Init()
-    iterations_slider = ffi.new("int[0]")
-    curvature_slider = ffi.new("float[0]")
-	line_xy.x1 = ffi.new("int[0]")
-	line_xy.y1 = ffi.new("int[0]")
-	line_xy.x2 = ffi.new("int[0]")
-	line_xy.y2 = ffi.new("int[0]")	
-    iterations_slider[0] = 8
-    curvature_slider[0] = 1
-	line_xy.x2[0] = 64
-	line_xy.y2[0] = -64
-	level_info.name[0] = 0
-	level_info.act[0] = 1
-	level_info.size_width[0] = 1280
-	level_info.size_height[0] = 1280
-	imgui.GetIO().ConfigFlags = 64
-end
-
-state_load()
-
-function love.update(dt)
-    imgui.love.Update(dt)
-    imgui.NewFrame()
-end
-
-function create_line_editor_window()
-    -- line editor window
-	imgui.SetNextWindowSize({350, 130}, imgui.ImGuiCond_FirstUseEver)
-	imgui.SetNextWindowPos({436, 32}, imgui.ImGuiCond_FirstUseEver)
-	imgui.Begin("line #".. selected_line.id,nil,256)
-	if selected_line.curvature ~= nil then
-		imgui.PushItemWidth(236)
-		imgui.SliderInt("##iterations", iterations_slider, 1, 64); imgui.SameLine()
-		imgui.Text("Iterations")	
-		imgui.SliderFloat("##curvature", curvature_slider, 0, 64); imgui.SameLine()
-		imgui.Text("Curvature")
-	end
-	imgui.PushItemWidth(114)
-	imgui.InputInt("##X1", line_xy.x1,1, 8); imgui.SameLine()
-	imgui.InputInt("##Y1", line_xy.y1,1, 8); imgui.SameLine()
-	imgui.Text("Initial Pos")
-	imgui.InputInt("##X2", line_xy.x2,1, 8); imgui.SameLine()
-	imgui.InputInt("##Y2", line_xy.y2,1, 8); imgui.SameLine()
-	imgui.Text("End Pos")
-	if curvature_slider[0] < 0 then
-		imgui.TextColored({1, 0, 0, 1}, "I wouldn't recommend using negative numbers")
-	end
-	imgui.End() 
-end
-
-function imgui_stuff()
-	--object browser
-	imgui.SetNextWindowSize({160, 400},imgui.ImGuiCond_FirstUseEver)
-	imgui.SetNextWindowPos({620, 180},imgui.ImGuiCond_FirstUseEver)
-	imgui.Begin("object list")
-		for i,v in pairs(placed) do
-			local is_selected
-			if selected_line == placed[i] then
-				is_selected = true
-			else
-				is_selected = false
-			end
-			if imgui.Selectable_Bool("line #".. placed[i].id,is_selected) then
-				love.audio.newSource("assets/sounds/switch.wav", "static"):play()
-				if placed[i].curvature ~= nil then
-					iterations_slider[0] = placed[i].iterations
-					curvature_slider[0] = placed[i].curvature
-				end
-				line_xy.x1[0] = placed[i].x1
-				line_xy.y1[0] = placed[i].y1
-				line_xy.x2[0] = placed[i].x2
-				line_xy.y2[0] = placed[i].y2
-				selected_line = placed[i]
-			end
-		end
-	imgui.End() 
-	--------------------------
-	-- level settings
-	imgui.Begin('Settings')
-		imgui.SetNextWindowSize({350, 130}, imgui.ImGuiCond_FirstUseEver)
-		imgui.SetNextWindowPos({32, 32}, imgui.ImGuiCond_FirstUseEver)
-		imgui.PushItemWidth(236)
-		imgui.InputText("##Name", level_info.name,32); imgui.SameLine()
-		imgui.Text("Level Name")
-		imgui.PushItemWidth(114)
-		if imgui.InputInt("##lvl_width", level_info.size_width,32,128) then
-			grids_load(level_info.size_width[0],level_info.size_height[0])
-		end
-			imgui.SameLine()
-		if imgui.InputInt("##lvl_height", level_info.size_height,32,128) then
-			grids_load(level_info.size_width[0],level_info.size_height[0])
-		end
-		imgui.SameLine()
-
-		imgui.Text("Level Borders")
-		if level_info.size_width[0] < 0 or level_info.size_height[0] < 0 then
-			imgui.TextColored({1, 0, 0, 1}, "I wouldn't recommend using negative numbers")
-		end
-	imgui.End()
-	--------------------------
-	-- menu bar
-	imgui.BeginMainMenuBar()
-	if imgui.BeginMenu('File') then
-
-		if imgui.MenuItem_Bool('New') then
-			placed = {}
-		end
-		if imgui.MenuItem_Bool('Open') then
-			placed = {}
-			load_level()
-		end
-		if imgui.MenuItem_Bool('Save') then
-			if ffi.string(level_info.name) ~= '' then
-				save_level()			
-			end
-
-		end
-		if imgui.MenuItem_Bool('Exit Editor') then
-		    gamestate_switch('playstate')
-		end
-	imgui.EndMenu()
-	end
-	
-	if imgui.BeginMenu('Editor') then
-
-		if imgui.MenuItem_Bool('add line') then
-			local edge_table = {id = #placed+1,x1 = 32,y1 = 32,x2 = 64,y2 = -64}
-			table.insert(placed, edge_table)
-			selected_line = placed[#placed]		
-		end
-		
-		if imgui.MenuItem_Bool('add curved line') then
-			local curve_table = {id = #placed+1,x1 = 32,y1 = 32,x2 = 64,y2 = -64,iterations = 8,curvature = 1}
-			table.insert(placed, curve_table)
-			selected_line = placed[#placed]
-		end
-		
-		if imgui.MenuItem_Bool('object browser') then
-
-		end
-		
-		if imgui.MenuItem_Bool('reset camera') then
-			camera.x = 0
-			camera.y = 0
-			camera.scale = 1	
-		end
-	imgui.EndMenu()
-	end
-	
-	imgui.EndMainMenuBar()
-	--------------------------
-	imgui.SetNextWindowSize({256, 256}, imgui.ImGuiCond_FirstUseEver)
-	imgui.SetNextWindowPos({64, 64}, imgui.ImGuiCond_FirstUseEver)		
-	imgui.Begin("Object Browser")
-	for i,v in pairs(objects) do
-		imgui.BeginGroup()
-			imgui.Selectable_Bool("##obj_".. v.editor_icon ,false,6,imgui.ImVec2_Float(64,64))
-			imgui.SameLine()
-			imgui.SetCursorPos(imgui.ImVec2_Float(10,30))
-			img = love.graphics.newImage('assets/sprites/editor/objects/'.. v.editor_icon ..'.png')
-			size = imgui.ImVec2_Float(img:getDimensions()) --funny
-			imgui.Image(img,size*1.5)
-			imgui.Text(v.editor_icon)
-		imgui.EndGroup()
-	end
-	imgui.End() 
-	--------------------------
-	if selected_line ~= nil then
-		create_line_editor_window()
-	end
-    -- code to render imgui
-    imgui.Render()
-    imgui.love.RenderDrawLists()
-end
-
-
-
-local function drawcurve(x1, y1, x2, y2, iterations, curvature)
+local function drawcurve(x1, y1, x2, y2, iterations, curvature, selected)
     local tablex = {}
     local tabley = {}
-    local curves = {}
+    local curve = {}
 
     for i = 1, iterations+1 do
         local t = (i + curvature) / (curvature + (iterations +1))
@@ -273,120 +65,309 @@ local function drawcurve(x1, y1, x2, y2, iterations, curvature)
         tablex[i] = x1 + ((x2 / iterations) * (i - 1)) / t
     end
 
+	if selected then
+		love.graphics.setColor(0,1,1)
+	end
+	
     for i = 1, iterations  do
-        curves[i] = love.physics.newEdgeShape(tablex[i], tabley[i], tablex[i + 1], tabley[i + 1])
-        table.insert(to_render, curves[i])
+        curve[i] = love.physics.newEdgeShape(tablex[i], tabley[i], tablex[i + 1], tabley[i + 1])
+		love.graphics.line(curve[i]:getPoints())
     end
+	
+	love.graphics.setColor(1,1,1)	
+	return curve
 end
 
-local function drawedge(x1, y1, x2, y2)
+local function drawedge(x1, y1, x2, y2,selected)
 	local edge = love.physics.newEdgeShape(x1, y1, x2 + x1, y2 + y1)
-	table.insert(to_render, edge)
+	
+	if selected then
+		love.graphics.setColor(0,1,1)
+	end
+	
+	love.graphics.line(edge:getPoints())
+	
+	love.graphics.setColor(1,1,1)
+	return edge
 end
 
-local right 
-local left 
-local up 
-local down 
-local ctrl
+function love.mousepressed(x, y, button)
+    imgui.MousePressed(button)
+	love.audio.newSource('assets/sounds/editor_click.wav', 'static'):play()
+end
 
-local x, y
-local x_editor
-local y_editor
+function love.mousereleased(x, y, button)
+    imgui.MouseReleased(button)
+	love.audio.newSource('assets/sounds/editor_release.wav', 'static'):play()
+end
 
-local point_open = love.graphics.newImage('assets/sprites/editor/ui/point_open.png')
-local point_closed = love.graphics.newImage('assets/sprites/editor/ui/point_closed.png')	
-	
-function state_draw()
-	x, y = love.mouse.getPosition()
-	x_editor = (x+camera.x)/camera.scale
-	y_editor = (y+camera.y)/camera.scale
-	
-	
-	right = love.keyboard.isDown('right')
-	left = love.keyboard.isDown('left')
-	up = love.keyboard.isDown('up')
-	down = love.keyboard.isDown('down')
-	ctrl = love.keyboard.isDown('lctrl')
-	
-	if right then
-		camera.x = camera.x + 5 
-	elseif left then
-		camera.x = camera.x - 5 		
-	end
-	
-	
-	to_render = {}
-	if selected_line ~= nil then
-		selected_line.x1 = line_xy.x1[0]
-		selected_line.y1 = line_xy.y1[0]
-		selected_line.x2 = line_xy.x2[0]
-		selected_line.y2 = line_xy.y2[0]		
-		if selected_line.curvature ~= nil then
-			selected_line.curvature = curvature_slider[0]
-			selected_line.iterations = iterations_slider[0]
-		end
-	end
-	for i,v in pairs(placed) do
-		if v.curvature ~= nil then
-			drawcurve(placed[i].x1, placed[i].y1, placed[i].x2, placed[i].y2, placed[i].iterations, placed[i].curvature)	
-		else
-			drawedge(placed[i].x1, placed[i].y1, placed[i].x2, placed[i].y2)
-		end
-	end
-	
 
-	
-	if not ctrl then
-		if up then
-			camera.y = camera.y - 5 
-		elseif down then
-			camera.y = camera.y + 5 		
-		end
-	else
-		if up then
-			camera.scale = camera.scale - 0.01 
-			camera.x = camera.x - 4 
-			camera.y = camera.y - 3 
-		elseif down then
-			camera.scale = camera.scale + 0.01 		
-			camera.x = camera.x + 4 
-			camera.y = camera.y + 3 
-		end
-	end
-	
-    love.graphics.push()
-	width, height = love.graphics.getDimensions( )
-	
-    love.graphics.translate(-camera.x, -camera.y)
-	love.graphics.scale( camera.scale + width/initial_width - 1, camera.scale + width/initial_width - 1)
-	grids_draw()
-	--[[ draw points for mouse compability
-	for i,v in pairs(placed) do
-		if v.curvature ~= nil then
-			love.graphics.draw(point_open,placed[i].x1,placed[i].y1,0,2,2)
-			love.graphics.draw(point_open,placed[i].x1+placed[i].x2,placed[i].y1+placed[i].y2,0,2,2)
-		else
-			love.graphics.draw(point_open,placed[i].x1,placed[i].y1,0,2,2)
-			love.graphics.draw(point_open,placed[i].x1+placed[i].x2,placed[i].y1+placed[i].y2,0,2,2)
-		end
-	end
-	]]
-    love.graphics.setColor(1, 1, 1)
-    for i, v in ipairs(to_render) do
-        if v:getType() == "polygon" then
-            love.graphics.polygon("line", v:getPoints())
-        elseif v:getType() == "edge" then
-            love.graphics.line(v:getPoints())
-        else
-            love.graphics.circle("line", v.x, v.y, v:getRadius())
-        end
+function love.keypressed( key, scancode, isrepeat )
+    imgui.KeyPressed(key)
+    if not imgui.GetWantCaptureKeyboard() then
+
     end
+end
+
+local default_font
+local function state_load()
+	default_font = imgui.AddFontFromFileTTF('assets/CascadiaMono.ttf',14)
+	love.audio.newSource('assets/sounds/editor_popup.wav', 'static'):play()
+	open_windows.startup_popup = true
+end
+
+state_load()
+
+function love.update(dt)
+	imgui.NewFrame()
+end
+
+function love.quit()
+    imgui.ShutDown();
+end
+
+local function camera_stuff()
+	keybinds.right = love.keyboard.isDown('right')
+	keybinds.left = love.keyboard.isDown('left')
+	keybinds.up = love.keyboard.isDown('up')
+	keybinds.down = love.keyboard.isDown('down')
+	keybinds.ctrl = love.keyboard.isDown('lctrl')
+	
+	if keybinds.right then
+		camera.to_x = camera.to_x + 3
+	elseif keybinds.left then
+		camera.to_x = camera.to_x - 3	
+	end
+
+	if keybinds.up then
+		camera.to_y = camera.to_y + 3
+	elseif keybinds.down then
+		camera.to_y = camera.to_y - 3
+	end
+	
+	camera.x = lerp(camera.x,camera.to_x,0.15)
+	camera.y = lerp(camera.y,camera.to_y,0.15)
+end
+
+function imgui_stuff() --prepare yourself because readability in here can be tough
+	imgui.PushStyleVar('ImGuiStyleVar_WindowTitleAlign',0.50,0.50)
+	imgui.PushStyleVar('ImGuiStyleVar_WindowRounding',3)
+	imgui.PushStyleVar('ImGuiStyleVar_TabRounding',3)
+	imgui.PushStyleVar('ImGuiStyleVar_WindowBorderSize',0)
+	imgui.PushFont(default_font)
+	--popups
+	if open_windows.startup_popup then
+		imgui.OpenPopup('Welcome!')
+		imgui.BeginPopupModal('Welcome!',nil,'ImGuiWindowFlags_AlwaysAutoResize')
+			imgui.SetItemDefaultFocus()
+			imgui.Text("It looks like it's your first time using LuaSonicEngine")
+			imgui.Text('Check out the wiki if confused')
+			imgui.Separator()
+			if imgui.Button('Ok') then
+				imgui.CloseCurrentPopup()
+				open_windows.startup_popup = false
+			end
+			imgui.SameLine()
+			if imgui.Button('Open Wiki') then
+				love.system.openURL('https://github.com/edgardeivis/LuaSonic-Engine/wiki')
+				imgui.CloseCurrentPopup()
+				open_windows.startup_popup = false
+			end
+		imgui.EndPopup()
+	end
+	--main menu bar
+	imgui.BeginMainMenuBar()
+		if imgui.BeginMenu('File') then
+			imgui.MenuItem('New')
+			imgui.MenuItem('Open')
+			imgui.MenuItem('Save')
+			imgui.Separator()
+			imgui.MenuItem('Settings')
+			imgui.Separator()
+			if imgui.MenuItem('Exit') then
+				love.event.quit()
+			end			
+			imgui.EndMenu()
+		end
+		
+		if imgui.BeginMenu('Edit') then
+			imgui.MenuItem('placeholder')
+			imgui.EndMenu()
+		end	
+		
+		if imgui.BeginMenu('View') then
+			if imgui.MenuItem('Editor View',nil,open_windows.editor_view) then
+				open_windows.editor_view = not open_windows.editor_view
+			end
+			if imgui.MenuItem('Object Properties',nil,open_windows.object_properties) then
+				open_windows.object_properties = not open_windows.object_properties
+			end
+			if imgui.MenuItem('Object List',nil,open_windows.object_list) then
+				open_windows.object_list = not open_windows.object_list
+			end
+			if imgui.MenuItem('Object Browser',nil,open_windows.object_browser) then	
+				open_windows.object_browser = not open_windows.object_browser
+			end
+			imgui.EndMenu()
+		end
+		if imgui.BeginMenu('Help') then
+			if imgui.MenuItem('Wiki') then
+				love.system.openURL('https://github.com/edgardeivis/LuaSonic-Engine/wiki')
+			end
+			if imgui.MenuItem('Issues') then
+				love.system.openURL('https://github.com/edgardeivis/LuaSonic-Engine/issues')
+			end
+			imgui.EndMenu()
+		end	
+		
+		imgui.SetCursorPosX(initial_width/2 - imgui.CalcTextSize('LuaSonicEngine - Level Editor')/2)
+		imgui.Text('LuaSonicEngine - Level Editor')
+		
+	imgui.EndMainMenuBar()
+	--status bar
+	imgui.SetNextWindowPos(0,initial_height - 30)
+	imgui.SetNextWindowSize(initial_width,30)
+	
+	imgui.PushStyleVar('ImGuiStyleVar_WindowRounding', 0)
+	
+	imgui.Begin('##Status Bar', nil, {'ImGuiWindowFlags_NoTitleBar','ImGuiWindowFlags_NoResize','ImGuiWindowFlags_NoMove','ImGuiWindowFlags_NoScrollbar','ImGuiWindowFlags_NoSavedSettings'})
+		imgui.Text('ver 0.1.0 - developed by edgardeivis')
+		imgui.SameLine()
+		imgui.Text('| FPS: '.. love.timer.getFPS())
+	imgui.End()
+	
+	imgui.PopStyleVar()
+	--object Browser
+	if open_windows.object_browser then
+		imgui.Begin('Object Browser',nil,'ImGuiWindowFlags_HorizontalScrollbar')
+			for i,v in ipairs(objects) do			
+				imgui.BeginGroup()
+					if imgui.ImageButton(v.sprite ,64,64) then
+						local new_object = {}
+						for i2,v2 in pairs(v.values) do
+							new_object[i2] = {}
+							new_object[i2][1] = v2[1] --value
+							new_object[i2][2] = v2[2] --type
+							if i2 == 'name' then
+								new_object[i2][1] = v2[1] .. #placed[v.category]
+							end							
+						end
+						table.insert(placed[v.category],new_object)
+					end
+					if imgui.IsItemHovered() then
+						imgui.SetTooltip(v.name..'\ncategory:'..v.category)
+					end
+					imgui.SetWindowFontScale(0.8)
+					imgui.Text(v.name)
+				imgui.EndGroup()
+				imgui.SameLine()
+				imgui.SetWindowFontScale(1)
+			end
+		imgui.End()
+	end
+	--editor view window
+	if open_windows.editor_view then
+		imgui.Begin('Editor View',nil,{'ImGuiWindowFlags_AlwaysAutoResize','ImGuiWindowFlags_NoDocking'})
+			imgui.BeginChild('##inside_view',540,320,false,{'ImGuiWindowFlags_NoMove','ImGuiWindowFlags_NoScrollbar','ImGuiWindowFlags_NoScrollWithMouse'})
+				imgui.Image(editor_view,540,320)
+				--get cursor position relative to window
+				local cursor_x,cursor_y = love.mouse.getPosition()
+				local window_x,window_y = imgui.GetWindowPos()
+				editor_cursor.x = cursor_x - window_x + camera.x
+				editor_cursor.y = cursor_y - window_y - camera.y
+			imgui.EndChild()
+		imgui.End()
+	end
+	--object list
+	if open_windows.object_list then
+		imgui.SetNextWindowSize(200,380)
+		imgui.Begin('Object List',nil)
+			if imgui.TreeNodeEx('Collision') then --lines and curved lines
+					for i,v in ipairs(placed.line) do
+						if cur_selected == v then v.selected = true else v.selected = false end
+						if imgui.Selectable(v.name[1],v.selected) then
+							if cur_selected == v then cur_selected = nil else cur_selected = v end
+						end
+					end
+					for i,v in ipairs(placed.curved_line) do
+						if cur_selected == v then v.selected = true else v.selected = false end
+						if imgui.Selectable(v.name[1],v.selected) then
+							if cur_selected == v then cur_selected = nil else cur_selected = v end
+						end
+					end					
+				imgui.TreePop()
+			end
+			imgui.Separator()
+			if imgui.TreeNodeEx('Objects') then
+				if imgui.TreeNodeEx('Rings') then
+					imgui.TreePop()
+				end
+				imgui.TreePop()
+			end
+			imgui.Separator()
+			if imgui.TreeNodeEx('Misc') then 
+				if imgui.TreeNodeEx('Flags') then
+					imgui.TreePop()
+				end
+				imgui.TreePop()	
+			end			
+			imgui.Separator()
+		imgui.End()
+	end
+	--object properties
+	if open_windows.object_properties then
+		imgui.SetNextWindowSize(200,380)
+		imgui.Begin('Object Properties',nil)
+			if cur_selected ~= nil then
+				for i,v in pairs(cur_selected) do
+					if type(v) == 'table' then
+						if v[2] == 'string' then
+							imgui.Text(i); imgui.SameLine()
+							imgui.InputText('##'..i, v[1],32);
+						elseif v[2] == 'integer' then
+							imgui.Text(i); imgui.SameLine()
+							imgui.InputInt('##'..i, v[1],32);
+						end
+					end
+				end
+			end
+		imgui.End()
+	end
+	imgui.Render()
+end
+
+local ghz = love.graphics.newImage('assets/sprites/editor/ui/greenhillzone.png')
+local test = love.graphics.newImage('assets/sprites/editor/ui/point_closed.png')
+
+function state_draw()
+	love.graphics.setBackgroundColor(0.8,0.8,0.8,1)
+	love.graphics.draw(ghz,0,0)
+	
+	camera_stuff()
+	
+	love.graphics.setCanvas(editor_view)
+	love.graphics.clear(0,0,0)
+	
+	love.graphics.push()
+	
+    love.graphics.translate(-camera.x, camera.y)
+	grids_draw()
+	for i,v in pairs(placed.line) do
+		drawedge(v.x1[1],v.y1[1],v.x2[1],v.y2[1],v.selected)
+	end
+	
+	for i,v in pairs(placed.curved_line) do
+		drawcurve(v.x1[1],v.y1[1],v.x2[1],v.y2[1],v.iterations[1],v.curvature[1],v.selected)
+	end	
+	
+	love.graphics.draw(test,editor_cursor.x,editor_cursor.y)
 	
 	love.graphics.pop()
+	
+	love.graphics.setCanvas()
+	
 	imgui_stuff()
-
-	love.graphics.print( math.floor(x_editor + 0.5) .. ',' .. math.floor(y_editor +0.5) .. ' | ' .. camera.scale,7,580)
+	
 end
 
 return state_draw

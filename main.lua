@@ -7,6 +7,8 @@ function sign(number)
     return number > 0 and 1 or (number == 0 and 0 or -1)
 end
 
+function lerp(a, b, x) return a + (b - a) * x end
+
 --thanks stackoverflow
 function string:split( inSplitPattern, outResults )
   if not outResults then
@@ -29,15 +31,12 @@ function loadgame()
 		print('state'..i..': '..v)
 	end
     gamestate_switch('level_editor')
-	love.audio.newSource("assets/sounds/ring.wav", "static"):play()
+	love.audio.newSource("assets/sounds/editor_startup.wav", "static"):play()
 end
 
 loadgame()
 
 function love.draw()
-
-
 	gamestate_draw()
-	love.graphics.print('FPS: '.. love.timer.getFPS() , 10, 20)
 end
 
