@@ -1,3 +1,3 @@
-LuaSonic-Engine Depends on [cimgui-love](https://codeberg.org/apicici/cimgui-love) and [love2D](https://www.love2d.org/) to work correctly.
-
-this is not a real engine, its very janky and will most likely stay this way, this was just something i was doing to have fun and learn
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/507e6240-9d2d-4334-a983-7309842767a1"/>
+</p>
