@@ -1,8 +1,14 @@
-typedef enum State { EDITOR, HEIGHT_EDITOR, GAME } State;
+typedef enum State { HOME_SCREEN, EDITOR, HEIGHT_EDITOR, GAME } State;
 
 extern State currentState;
 
 extern void switch_state(State state);
+
+//Home Screen Functions
+void home_init(void);
+void home_update(void);
+void home_draw(void);
+void home_unload(void);
 
 //Editor Functions
 void editor_init(void);

@@ -12,8 +12,6 @@
 
 //variables
 
-Texture2D editorBG;
-Sound editor_sounds[6]; //0 = startup | 1 = popup | 2 = warning | 3 = error | 4 = mouse press | 5 = mouse release
 static ImFont* mainFont;
 
 static Camera2D editorCamera;
