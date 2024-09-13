@@ -14,6 +14,7 @@
 
 static ImFont* mainFont;
 
+Texture2D editorBG;
 static Camera2D editorCamera;
 static RenderTexture editorView;
 
