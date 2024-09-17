@@ -14,19 +14,21 @@
 
 // code
 
+#define MAX_TILES 224
+
 static Camera2D editorCamera;
 static RenderTexture dataView;
-static RenderTexture tilePreview[224];
+static RenderTexture tilePreview[MAX_TILES];
 
 static int loaded = 0;
 static bool loading = true;
 static State stateToSwitch;
 
-static int tileData[2][224][16];
+static int tileData[2][MAX_TILES+1][16];
 // first array: [0] Height [1] Width ## I would just make them the same but ended up deciding to separate
 // second array: the tile id
 // third array: the height values of the tile, going to 16
-static float tileDataAngle[224];
+static float tileDataAngle[MAX_TILES+1];
 // angle of the tiles
 
 static int tileSelected = 0;
@@ -61,7 +63,7 @@ void update_tile(int tile)
     }
     EndTextureMode();
     loaded++;
-    if (loaded == 224)
+    if (loaded == MAX_TILES)
     {
         loading = false;
     }
@@ -119,7 +121,7 @@ void imgui_data(void)
     rlImGuiBegin();
 
     // popups
-    if (loaded < 224)
+    if (loaded < MAX_TILES)
     {
         ImGui::OpenPopup("Loading");
         ImGui::BeginPopup("Loading", ImGuiWindowFlags_NoMove);
@@ -127,11 +129,11 @@ void imgui_data(void)
         ImGui::SetItemDefaultFocus();
         if (loading)
         {
-            ImGui::Text(TextFormat("Loading tiles... %i/224", loaded));
+            ImGui::Text(TextFormat("Loading tiles... %i/%i", loaded,MAX_TILES));
         }
         else
         {
-            ImGui::Text(TextFormat("Unloading tiles... %i/224", loaded));
+            ImGui::Text(TextFormat("Unloading tiles... %i/%i", loaded,MAX_TILES));
         }
         ImGui::EndPopup();
     }
@@ -284,7 +286,7 @@ void imgui_data(void)
     ImGui::Begin("Data Browser", &openWindows[0]);
 
     float windowVisibleX = ImGui::GetWindowPos().x + ImGui::GetWindowWidth();
-    for (int i = 0; i < 224; i++)
+    for (int i = 0; i < MAX_TILES; i++)
     { // wrapping content inside the frame
         ImVec4 colorSelected = (tileSelected == i) ? ImVec4(1.0, 1.0, 1.0, 1.0) : ImVec4(0.5, 0.5, 0.5, 1.0);
         if (ImGui::ImageButton(TextFormat("##tile_%i", i), &tilePreview[i].texture, ImVec2(64, 64), ImVec2(0, 0), ImVec2(1, -1), ImVec4(0, 0, 0, 0), colorSelected))
@@ -310,7 +312,7 @@ void height_editor_draw(void)
     DrawTexture(editorBG, 0, 0, WHITE);
     for (int tile = 0; tile < 1; tile++)
     {
-        if (loaded < 224)
+        if (loaded < MAX_TILES)
         {
             if (loading)
             {
@@ -335,11 +337,11 @@ void height_editor_draw(void)
     imgui_data();
     if (IsMouseButtonPressed(0) or IsMouseButtonPressed(1))
     {
-        PlaySound(editor_sounds[4]);
+        PlaySound(editorSounds[4]);
     }
     if (IsMouseButtonReleased(0) or IsMouseButtonReleased(1))
     {
-        PlaySound(editor_sounds[5]);
+        PlaySound(editorSounds[5]);
     }
 }
 
