@@ -1,7 +1,8 @@
 
 // includes
+#include <filesystem>
 
-#include "raylib.h"
+#include <raylib.h>
 
 #include "stateSystem.cpp"
 #include "globals.cpp"
@@ -17,14 +18,64 @@ static ImFont *mainFont;
 
 static char currentDirectory[2048];
 
-// static int selected[100];
+typedef struct {
+	char paths[100][2048];
+	int count;
+	int selected;
+} PROJECTPATHS;
+
+static PROJECTPATHS projectDirectories;
+
 static bool openWindows[5] = {
-	false // file explorer [0]
+	false, // path explorer [0]
+	false // project paths [1]
 };
 
 // code
 
-void file_explorer(void)
+void project_paths(void)
+{
+	ImGui::OpenPopup("Project paths");
+	ImGui::BeginPopupModal("Project paths",NULL);
+	ImGui::SetItemDefaultFocus();
+	ImGui::BeginChild("##Folders",ImVec2(ImGui::GetWindowWidth()-15,ImGui::GetWindowHeight()-60),ImGuiChildFlags_Border);
+	for (int i = 0; i < projectDirectories.count; i++) 
+	{
+		bool selected;
+		if (projectDirectories.selected == i) { selected = true; } else { selected = false; }
+		if (ImGui::Selectable(projectDirectories.paths[i],selected)) {
+			projectDirectories.selected = i;
+		}
+	}
+	ImGui::EndChild();
+	if (ImGui::Button("Add path")) 
+	{
+		openWindows[0] = true;
+		openWindows[1] = false;
+		ImGui::CloseCurrentPopup();
+
+	}
+	ImGui::SameLine();
+	bool shouldBeDisabled = false;
+
+	if (projectDirectories.count == 0) {
+		shouldBeDisabled = true;
+	}
+	
+	ImGui::BeginDisabled(shouldBeDisabled);
+	ImGui::Button("Remove path");
+	ImGui::EndDisabled();
+
+	ImGui::SameLine();
+	if (ImGui::Button("Cancel")) 
+	{
+		openWindows[1] = false;
+		ImGui::CloseCurrentPopup();
+	}
+	ImGui::EndPopup();
+}
+
+void path_explorer(void)
 {
 	FilePathList paths;
 
@@ -34,8 +85,8 @@ void file_explorer(void)
 		paths = LoadDirectoryFiles(GetWorkingDirectory());
 	}
 
-	ImGui::OpenPopup("File Explorer");
-	ImGui::BeginPopupModal("File Explorer",NULL);
+	ImGui::OpenPopup("Choose path");
+	ImGui::BeginPopupModal("Choose path",NULL);
 	ImGui::SetItemDefaultFocus();
 	if (ImGui::Button("##back",ImVec2(20,20))) 
 	{
@@ -47,7 +98,7 @@ void file_explorer(void)
 	ImGui::BeginChild("##Folders",ImVec2(ImGui::GetWindowWidth()-15,ImGui::GetWindowHeight()-85),ImGuiChildFlags_Border);
 	for (int i = 0; i < paths.count; i++) 
 	{
-		if (not IsPathFile(paths.paths[i])) //for some reason LoadDirectoryFilesEx lags the hell out of it, so i had to go with this
+		if (!IsPathFile(paths.paths[i])) //for some reason LoadDirectoryFilesEx lags the hell out of it, so i had to go with this
 		{
 			if (ImGui::Selectable(GetFileName(paths.paths[i])))
 			{
@@ -56,18 +107,25 @@ void file_explorer(void)
 		}
 	}
 	ImGui::EndChild();
-	ImGui::Button("Select Directory");
+	if (ImGui::Button("Select Directory")) {
+		TextCopy(projectDirectories.paths[projectDirectories.count],currentDirectory);
+		projectDirectories.count++;
+		openWindows[0] = false;
+		openWindows[1] = true;
+		ImGui::CloseCurrentPopup();
+	}
 	ImGui::SameLine();
 	if (ImGui::Button("Cancel")) 
 	{
 		openWindows[0] = false;
+		openWindows[1] = true;
 		ImGui::CloseCurrentPopup();
 	}
 	ImGui::EndPopup();
 	UnloadDirectoryFiles(paths);
 }
 
-void project_element(void)
+void project_element(const char projectName[],char projectPath[])
 {
 
 	ImGui::GetWindowDrawList()->ChannelsSplit(2);
@@ -77,10 +135,10 @@ void project_element(void)
 	// draw project title
 	ImGui::SetCursorPosX(95);
 	ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 60);
-	ImGui::Text("Project_Name");
+	ImGui::Text(projectName);
 	// draw project description
 	ImGui::SetCursorPosX(95);
-	ImGui::TextColored(ImVec4(1, 1, 1, 0.5), "C://Documents/LuaSonicEngine/Projects");
+	ImGui::TextColored(ImVec4(1, 1, 1, 0.5), projectPath);
 	ImGui::EndGroup();
 	ImGui::GetWindowDrawList()->ChannelsSetCurrent(0);
 	if (ImGui::IsItemHovered())
@@ -120,7 +178,18 @@ void home_init(void)
 
 		PlaySound(editorSounds[0]);
 	}
+
+	ChangeDirectory(GetDirectoryPath(GetApplicationDirectory()));
+
+	if (not DirectoryExists("Projects")) {
+		std::filesystem::create_directory("Projects");
+	}
+
 	TextCopy(currentDirectory,GetWorkingDirectory());
+
+	TextCopy(projectDirectories.paths[projectDirectories.count],TextFormat("%s\\Projects",GetWorkingDirectory()));
+	projectDirectories.count++;
+
 }
 
 void imgui_home(void)
@@ -128,11 +197,14 @@ void imgui_home(void)
 	rlImGuiBegin();
 
 	// popups
-	if (openWindows[0]) //file explorer
+	if (openWindows[0]) //path explorer
 	{
-		file_explorer();
+		path_explorer();
 	}
-
+	if (openWindows[1]) //project paths manager
+	{
+		project_paths();
+	}
 	// project manager window
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
 	ImGui::SetNextWindowSize(ImVec2(GetScreenWidth(), GetScreenHeight()));
@@ -145,9 +217,17 @@ void imgui_home(void)
 	ImGui::BeginTabItem("Projects");
 
 	ImGui::BeginChild("Projects", ImVec2(GetScreenWidth() / 4 * 3 - 20, GetScreenHeight() - 70), ImGuiChildFlags_Border);
-	for (int i = 0; i < 100; i++)
+	for (int i = 0; i < projectDirectories.count; i++) 
 	{
-		project_element();
+		FilePathList paths;
+
+		paths = LoadDirectoryFiles(projectDirectories.paths[i]);
+
+		for (int projects = 0; projects < paths.count; projects++) {
+			project_element(GetFileName(paths.paths[projects]),projectDirectories.paths[i]);
+		}
+
+		UnloadDirectoryFiles(paths);
 	}
 	ImGui::EndChild();
 
@@ -157,7 +237,7 @@ void imgui_home(void)
 	ImGui::Button("New project");
 	if (ImGui::Button("Scan directory"))
 	{
-		openWindows[0] = true;
+		openWindows[1] = true;
 		PlaySound(editorSounds[1]);
 	}
 	ImGui::Separator();

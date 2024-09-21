@@ -200,7 +200,7 @@ void imgui_data(void)
     {
         if (ImGui::MenuItem("Level Editor"))
         {
-            if (not loading)
+            if (!loading)
             {
                 loaded = 0;
                 stateToSwitch = EDITOR;
