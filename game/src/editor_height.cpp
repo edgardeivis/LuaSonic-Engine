@@ -34,11 +34,11 @@ static float tileDataAngle[MAX_TILES+1];
 static int tileSelected = 0;
 
 static bool openWindows[5] = {
-    true, // data view [0]
-    true, // height values [1]
-    true, // object list [2]
-    true, // object browser [3]
-    false // first time user popup [4]
+    true, //       data view [0]
+    true, //   height values [1]
+    true, //     object list [2]
+    true, //  object browser [3]
+    false // first time user [4]
 };
 
 static int dataViewSize = 2; // the default is 2 for now, user data saving will be for another time

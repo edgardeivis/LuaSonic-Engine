@@ -1,14 +1,18 @@
 
 // includes
 #include <filesystem>
+#include <fstream>
 
-#include <raylib.h>
+#include "raylib.h"
 
 #include "stateSystem.cpp"
 #include "globals.cpp"
 
 #include "imgui.h"
 #include "rlImGui.h"
+#include "nlohmann-json/json.hpp"
+
+using json = nlohmann::json;
 
 // variables
 
@@ -26,9 +30,13 @@ typedef struct {
 
 static PROJECTPATHS projectDirectories;
 
+static char newProjectName[128];
+static char newProjectPath[2048];
+
 static bool openWindows[5] = {
 	false, // path explorer [0]
-	false // project paths [1]
+	false, // project paths [1]
+	false //    new project [2]
 };
 
 // code
@@ -234,7 +242,10 @@ void imgui_home(void)
 	ImGui::SameLine();
 
 	ImGui::BeginChild("SideBar", ImVec2(GetScreenWidth() / 4, GetScreenHeight() - 70), ImGuiChildFlags_Border);
-	ImGui::Button("New project");
+	if (ImGui::Button("New project"))
+	{
+		openWindows[2] = true;
+	}
 	if (ImGui::Button("Scan directory"))
 	{
 		openWindows[1] = true;
@@ -256,6 +267,36 @@ void imgui_home(void)
 	ImGui::End();
 	ImGui::PopStyleVar();
 
+	//project creation window
+	if (openWindows[2])
+	{
+		ImGui::OpenPopup("New project");
+		ImGui::SetItemDefaultFocus();
+		ImGui::BeginPopupModal("New project",NULL);
+		ImGui::Text("Project name");
+		ImGui::InputText("##project_name",newProjectName,128);
+		ImGui::Text("Project location");
+		ImGui::InputText("##project_path",newProjectPath,2048);
+		ImGui::SameLine();
+		ImGui::Button("...");
+		if (ImGui::Button("Create")) 
+		{
+			std::filesystem::create_directory(TextFormat("%s\\%s",newProjectPath,newProjectName));
+			json projectJson;
+			projectJson["name"] = newProjectName;
+			std::ofstream outfile (TextFormat("%s\\%s\\project.json",newProjectPath,newProjectName));
+			outfile << projectJson << std::endl;
+			outfile.close();
+			openWindows[2] = false;	
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel"))
+		{
+			openWindows[2] = false;
+		}
+		ImGui::EndPopup();
+	}
+	
 	rlImGuiEnd();
 }
 

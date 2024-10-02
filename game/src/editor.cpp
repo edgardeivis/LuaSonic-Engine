@@ -19,11 +19,11 @@ static Camera2D editorCamera;
 static RenderTexture editorView;
 
 static bool openWindows[5] = {
-	true, // editor view [0]
+	true, //       editor view [0]
 	true, // object properties [1]
-	true, // object list [2]
-	true, // object browser [3]
-	false // first time user popup [4]
+	true, //       object list [2]
+	true, //    object browser [3]
+	false //   first time user [4]
 };
 
 // code

@@ -137,7 +137,23 @@ project "rlImGui"
 	files {"imgui-master/*.h", "imgui-master/*.cpp", "imgui/*.h", "imgui/*.cpp", "*.cpp", "*.h", "extras/**.h"}
 
 	defines {"IMGUI_DISABLE_OBSOLETE_FUNCTIONS","IMGUI_DISABLE_OBSOLETE_KEYIO"}
-
+	
+project "json"
+	kind "StaticLib"
+	location "build"
+	targetdir "bin/%{cfg.buildcfg}"
+	language "C++"
+	cdialect "C99"
+	cppdialect "C++17"
+	include_raylib()
+	includedirs { "nlohmann-json"}
+	vpaths 
+	{
+		["Header Files"] = { "*.hpp"},
+		["Source Files"] = {"*.cpp"},
+	}
+	files {"nlohmann-json/*.h", "nlohmann-json/*.hpp"}
+	
 project "luasonicengine"
 	kind "ConsoleApp"
 	language "C++"
